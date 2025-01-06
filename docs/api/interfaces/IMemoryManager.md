@@ -1,4 +1,4 @@
-[@ai16z/eliza v1.0.0](../index.md) / IMemoryManager
+[@elizaos/core v0.1.7-alpha.1](../index.md) / IMemoryManager
 
 # Interface: IMemoryManager
 
@@ -10,9 +10,9 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:479](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L479)
+[packages/core/src/types.ts:967](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L967)
 
----
+***
 
 ### tableName
 
@@ -20,9 +20,9 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:480](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L480)
+[packages/core/src/types.ts:968](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L968)
 
----
+***
 
 ### constructor
 
@@ -30,7 +30,7 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:482](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L482)
+[packages/core/src/types.ts:969](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L969)
 
 ## Methods
 
@@ -48,9 +48,9 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:484](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L484)
+[packages/core/src/types.ts:971](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L971)
 
----
+***
 
 ### getMemories()
 
@@ -66,8 +66,6 @@
 
 • **opts.unique?**: `boolean`
 
-• **opts.agentId?**: \`$\{string\}-$\{string\}-$\{string\}-$\{string\}-$\{string\}\`
-
 • **opts.start?**: `number`
 
 • **opts.end?**: `number`
@@ -78,9 +76,9 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:485](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L485)
+[packages/core/src/types.ts:973](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L973)
 
----
+***
 
 ### getCachedEmbeddings()
 
@@ -96,9 +94,9 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:493](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L493)
+[packages/core/src/types.ts:981](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L981)
 
----
+***
 
 ### getMemoryById()
 
@@ -114,9 +112,9 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:496](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L496)
+[packages/core/src/types.ts:985](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L985)
 
----
+***
 
 ### getMemoriesByRoomIds()
 
@@ -128,17 +126,15 @@
 
 • **params.roomIds**: \`$\{string\}-$\{string\}-$\{string\}-$\{string\}-$\{string\}\`[]
 
-• **params.agentId?**: \`$\{string\}-$\{string\}-$\{string\}-$\{string\}-$\{string\}\`
-
 #### Returns
 
 `Promise`\<[`Memory`](Memory.md)[]\>
 
 #### Defined in
 
-[packages/core/src/types.ts:497](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L497)
+[packages/core/src/types.ts:986](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L986)
 
----
+***
 
 ### searchMemoriesByEmbedding()
 
@@ -150,7 +146,7 @@
 
 • **opts**
 
-• **opts.match_threshold?**: `number`
+• **opts.match\_threshold?**: `number`
 
 • **opts.count?**: `number`
 
@@ -158,17 +154,15 @@
 
 • **opts.unique?**: `boolean`
 
-• **opts.agentId?**: \`$\{string\}-$\{string\}-$\{string\}-$\{string\}-$\{string\}\`
-
 #### Returns
 
 `Promise`\<[`Memory`](Memory.md)[]\>
 
 #### Defined in
 
-[packages/core/src/types.ts:501](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L501)
+[packages/core/src/types.ts:987](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L987)
 
----
+***
 
 ### createMemory()
 
@@ -186,9 +180,9 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:511](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L511)
+[packages/core/src/types.ts:997](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L997)
 
----
+***
 
 ### removeMemory()
 
@@ -204,9 +198,9 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:512](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L512)
+[packages/core/src/types.ts:999](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L999)
 
----
+***
 
 ### removeAllMemories()
 
@@ -222,9 +216,9 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:513](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L513)
+[packages/core/src/types.ts:1001](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1001)
 
----
+***
 
 ### countMemories()
 
@@ -242,4 +236,4 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:514](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L514)
+[packages/core/src/types.ts:1003](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1003)

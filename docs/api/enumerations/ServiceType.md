@@ -1,18 +1,18 @@
-[@ai16z/eliza v1.0.0](../index.md) / ServiceType
+[@elizaos/core v0.1.7-alpha.1](../index.md) / ServiceType
 
 # Enumeration: ServiceType
 
 ## Enumeration Members
 
-### IMAGE_DESCRIPTION
+### IMAGE\_DESCRIPTION
 
-> **IMAGE_DESCRIPTION**: `"image_description"`
+> **IMAGE\_DESCRIPTION**: `"image_description"`
 
 #### Defined in
 
-[packages/core/src/types.ts:658](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L658)
+[packages/core/src/types.ts:1226](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1226)
 
----
+***
 
 ### TRANSCRIPTION
 
@@ -20,9 +20,9 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:659](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L659)
+[packages/core/src/types.ts:1227](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1227)
 
----
+***
 
 ### VIDEO
 
@@ -30,19 +30,19 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:660](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L660)
+[packages/core/src/types.ts:1228](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1228)
 
----
+***
 
-### TEXT_GENERATION
+### TEXT\_GENERATION
 
-> **TEXT_GENERATION**: `"text_generation"`
+> **TEXT\_GENERATION**: `"text_generation"`
 
 #### Defined in
 
-[packages/core/src/types.ts:661](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L661)
+[packages/core/src/types.ts:1229](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1229)
 
----
+***
 
 ### BROWSER
 
@@ -50,19 +50,19 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:662](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L662)
+[packages/core/src/types.ts:1230](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1230)
 
----
+***
 
-### SPEECH_GENERATION
+### SPEECH\_GENERATION
 
-> **SPEECH_GENERATION**: `"speech_generation"`
+> **SPEECH\_GENERATION**: `"speech_generation"`
 
 #### Defined in
 
-[packages/core/src/types.ts:663](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L663)
+[packages/core/src/types.ts:1231](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1231)
 
----
+***
 
 ### PDF
 
@@ -70,4 +70,44 @@
 
 #### Defined in
 
-[packages/core/src/types.ts:664](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L664)
+[packages/core/src/types.ts:1232](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1232)
+
+***
+
+### INTIFACE
+
+> **INTIFACE**: `"intiface"`
+
+#### Defined in
+
+[packages/core/src/types.ts:1233](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1233)
+
+***
+
+### AWS\_S3
+
+> **AWS\_S3**: `"aws_s3"`
+
+#### Defined in
+
+[packages/core/src/types.ts:1234](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1234)
+
+***
+
+### BUTTPLUG
+
+> **BUTTPLUG**: `"buttplug"`
+
+#### Defined in
+
+[packages/core/src/types.ts:1235](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1235)
+
+***
+
+### SLACK
+
+> **SLACK**: `"slack"`
+
+#### Defined in
+
+[packages/core/src/types.ts:1236](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L1236)

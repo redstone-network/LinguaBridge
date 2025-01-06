@@ -1,6 +1,6 @@
-import { composeContext } from "@ai16z/eliza/src/context.ts";
-import { generateTrueOrFalse } from "@ai16z/eliza/src/generation.ts";
-import { booleanFooter } from "@ai16z/eliza/src/parsing.ts";
+import { composeContext } from "@elizaos/core";
+import { generateTrueOrFalse } from "@elizaos/core";
+import { booleanFooter } from "@elizaos/core";
 import {
     Action,
     ActionExample,
@@ -8,7 +8,7 @@ import {
     Memory,
     ModelClass,
     State,
-} from "@ai16z/eliza";
+} from "@elizaos/core";
 
 export const shouldMuteTemplate =
     `Based on the conversation so far:
@@ -54,7 +54,7 @@ export const muteRoomAction: Action = {
             const response = await generateTrueOrFalse({
                 runtime,
                 context: shouldMuteContext,
-                modelClass: ModelClass.SMALL,
+                modelClass: ModelClass.LARGE,
             });
 
             return response;

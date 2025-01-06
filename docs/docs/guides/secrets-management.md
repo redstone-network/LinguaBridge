@@ -12,9 +12,10 @@ A comprehensive guide for managing secrets, API keys, and sensitive configuratio
 
 Eliza uses a hierarchical environment variable system:
 
-1. Character-specific secrets (highest priority)
-2. Environment variables
-3. Default values (lowest priority)
+1. Character-specific namespaced environment variables (highest priority)
+2. Character-specific secrets
+3. Environment variables
+4. Default values (lowest priority)
 
 ### Secret Types
 
@@ -35,9 +36,16 @@ TELEGRAM_BOT_TOKEN=your-token
 SUPABASE_URL=your-url
 SUPABASE_SERVICE_API_KEY=your-key
 
-# Blockchain Keys
-WALLET_PRIVATE_KEY=your-private-key
-WALLET_PUBLIC_KEY=your-public-key
+# EVM
+EVM_PRIVATE_KEY=EXAMPLE_WALLET_PRIVATE_KEY
+
+# Solana
+SOLANA_PRIVATE_KEY=EXAMPLE_WALLET_PRIVATE_KEY
+SOLANA_PUBLIC_KEY=EXAMPLE_WALLET_PUBLIC_KEY
+
+# Fallback Wallet Configuration (deprecated)
+WALLET_PRIVATE_KEY=EXAMPLE_WALLET_PRIVATE_KEY
+WALLET_PUBLIC_KEY=EXAMPLE_WALLET_PUBLIC_KEY
 ```
 
 ## Implementation Guide
@@ -89,6 +97,8 @@ Define secrets in character files:
 }
 ```
 
+Alternatively, you can use the `CHARACTER.YOUR_CHARACTER_NAME.SECRET_NAME` format inside your `.env` file.
+
 Access secrets in code:
 
 ```typescript
@@ -124,7 +134,9 @@ Secure handling of blockchain credentials:
 ```typescript
 class WalletManager {
   private async initializeWallet(runtime: IAgentRuntime) {
-    const privateKey = runtime.getSetting("WALLET_PRIVATE_KEY");
+    const privateKey =
+      runtime.getSetting("SOLANA_PRIVATE_KEY") ??
+      runtime.getSetting("WALLET_PRIVATE_KEY");
 
     if (!privateKey) {
       throw new Error("Wallet private key not configured");
