@@ -23,7 +23,7 @@ export const startAgents = async () => {
         } else if (args.token) {
             // load from nft
             elizaLogger.info("Starting in NFT mode...");
-            characters = await loadFromNFT(args.token, args.dir);
+            characters = await loadFromNFT(args.token, args.proof, args.dir);
         } else {
             // load from default character
             elizaLogger.info("Starting with default character...");

@@ -6,8 +6,7 @@ import { TokenData, AgentMetadata } from './types';
 import { AgentNFT } from './contracts/AgentNFT';
 import { AgentNFT__factory } from './contracts/factories/AgentNFT__factory';
 import { Indexer, ZgFile } from '@0glabs/0g-ts-sdk';
-
-const NUM_AGENT_HASHES = 2;
+import { createVerify } from 'crypto';
 
 export class AgentNFTClient {
     private provider: ethers.Provider;
@@ -123,17 +122,17 @@ export class AgentNFTClient {
         }
     }
 
-    async validateToken(tokenData: TokenData): Promise<boolean> {
+    async validateToken(tokenData: TokenData, proof: string): Promise<boolean> {
         try {
             const tokenOwner = tokenData.owner.toLowerCase();
-            const tokenOwnerPrivateKey = process.env.ZEROG_PRIVATE_KEY?.toLowerCase();
-            const claimedTokenOwner = new ethers.Wallet(tokenOwnerPrivateKey).address.toLowerCase();
-            if (tokenOwner === claimedTokenOwner) {
-                return true;
-            } else {
-                elizaLogger.error(`Token ${tokenData.tokenId} is not owned by ${claimedTokenOwner}, token owner is ${tokenOwner}`);
-                return false;
-            }
+            elizaLogger.info("proof", proof);
+            // parse proof and verify
+            const { signature, message } = JSON.parse(proof);
+            elizaLogger.info("signature", signature);
+            elizaLogger.info("message", message);
+            elizaLogger.info("signer", tokenOwner);
+            const isValid = createVerify('sha256').update(message).verify(tokenOwner, signature, 'base64');
+            return isValid;
         } catch (error) {
             elizaLogger.error(`Error when validating token ${tokenData.tokenId}:`, error);
             return false;
@@ -151,10 +150,6 @@ export class AgentNFTClient {
 
         if (!fs.existsSync(this.baseDir)) {
             fs.mkdirSync(this.baseDir, { recursive: true });
-        }
-
-        if (dataHashes.length !== NUM_AGENT_HASHES || dataDescriptions.length !== NUM_AGENT_HASHES) {
-            throw new Error(`Expected ${NUM_AGENT_HASHES} data hashes and descriptions, got ${dataHashes.length} hashes and ${dataDescriptions.length} descriptions`);
         }
 
         elizaLogger.info(`Downloading data for token ${tokenId}`);

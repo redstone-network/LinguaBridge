@@ -134,10 +134,21 @@ export function parseArguments(): ParsedArguments {
                 type: "string",
                 description: "Comma separated list of NFT token IDs to load configuration from",
             })
+            .option("proof", {
+                type: "string",
+                description: "Proof of ownership of the NFT",
+            })
             .option("dir", {
                 type: "string",
                 description: "Base directory storing the agent data",
                 default: ""
+            })
+            .check((argv) => {
+                if (argv.token && !argv.proof) {
+                    elizaLogger.error("The 'proof' option is required when 'token' is provided.");
+                    throw new Error("The 'proof' option is required when 'token' is provided.");
+                }
+                return true;
             })
             .parseSync();
     } catch (error) {
@@ -1024,7 +1035,7 @@ export const checkPortAvailable = (port: number): Promise<boolean> => {
 };
 
 
-export async function loadFromNFT(tokenId: string, baseDir: string = ""): Promise<Character[]> {
+export async function loadFromNFT(tokenId: string, proof: string, baseDir: string = ""): Promise<Character[]> {
     const agentNFTClient = new AgentNFTClient(baseDir);
 
     const name = await agentNFTClient.getNFTName();
@@ -1041,7 +1052,7 @@ export async function loadFromNFT(tokenId: string, baseDir: string = ""): Promis
     elizaLogger.info("tokenData", tokenData);
 
     elizaLogger.info("Validating token ownership and permissions...");
-    const isValid = await agentNFTClient.validateToken(tokenData);
+    const isValid = await agentNFTClient.validateToken(tokenData, proof);
     if (!isValid) {
         elizaLogger.error("Token validation failed");
         throw new Error(`Token validation failed`);

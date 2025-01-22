@@ -2,6 +2,7 @@ export interface ParsedArguments {
     character?: string;
     characters?: string;
     token?: string;
+    proof?: string;
     dir?: string;
 }
 
