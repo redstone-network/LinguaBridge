@@ -96,9 +96,9 @@ export class AgentNFTClient {
         }
     }
 
-    async mintToken(proofs: string[], dataDescriptions: string[]): Promise<string> {
+    async mintToken(proofs: string[], dataDescriptions: string[], tokenOwner: string): Promise<string> {
         try {
-            const tx = await this.contract.mint(proofs, dataDescriptions);
+            const tx = await this.contract.mint(proofs, dataDescriptions, tokenOwner);
             const receipt = await tx.wait();
             const mintEvent = receipt?.logs
                 .map(log => {
@@ -247,7 +247,7 @@ export class AgentNFTClient {
             const proofs = await this.generateOwnershipProof(["preimage1", "preimage2"], [characterRoot, memoryRoot]);
 
             // create agent NFT
-            const tokenId = await this.mintToken(proofs, ["eliza_character", "eliza_memory"]);
+            const tokenId = await this.mintToken(proofs, ["eliza_character", "eliza_memory"], this.signer.address);
             // const tokenData = await this.getTokenData(tokenId);
             elizaLogger.info(`Agent NFT created successfully, token ID: ${tokenId}`);
             return tokenId;

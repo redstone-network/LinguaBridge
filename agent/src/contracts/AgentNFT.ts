@@ -79,7 +79,7 @@ export interface AgentNFTInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "mint",
-    values: [BytesLike[], string[]]
+    values: [BytesLike[], string[], AddressLike]
   ): string;
   encodeFunctionData(functionFragment: "name", values?: undefined): string;
   encodeFunctionData(
@@ -182,18 +182,21 @@ export namespace MintedEvent {
   export type InputTuple = [
     _tokenId: BigNumberish,
     _creator: AddressLike,
+    _owner: AddressLike,
     _dataHashes: BytesLike[],
     _dataDescriptions: string[]
   ];
   export type OutputTuple = [
     _tokenId: bigint,
     _creator: string,
+    _owner: string,
     _dataHashes: string[],
     _dataDescriptions: string[]
   ];
   export interface OutputObject {
     _tokenId: bigint;
     _creator: string;
+    _owner: string;
     _dataHashes: string[];
     _dataDescriptions: string[];
   }
@@ -341,7 +344,7 @@ export interface AgentNFT extends BaseContract {
   >;
 
   mint: TypedContractMethod<
-    [proofs: BytesLike[], dataDescriptions: string[]],
+    [proofs: BytesLike[], dataDescriptions: string[], to: AddressLike],
     [bigint],
     "payable"
   >;
@@ -411,7 +414,7 @@ export interface AgentNFT extends BaseContract {
   getFunction(
     nameOrSignature: "mint"
   ): TypedContractMethod<
-    [proofs: BytesLike[], dataDescriptions: string[]],
+    [proofs: BytesLike[], dataDescriptions: string[], to: AddressLike],
     [bigint],
     "payable"
   >;
@@ -518,7 +521,7 @@ export interface AgentNFT extends BaseContract {
       ClonedEvent.OutputObject
     >;
 
-    "Minted(uint256,address,bytes32[],string[])": TypedContractEvent<
+    "Minted(uint256,address,address,bytes32[],string[])": TypedContractEvent<
       MintedEvent.InputTuple,
       MintedEvent.OutputTuple,
       MintedEvent.OutputObject
