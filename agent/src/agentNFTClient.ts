@@ -1,4 +1,4 @@
-import { ethers, toUtf8Bytes } from 'ethers';
+import { ethers } from 'ethers';
 import fs from 'fs';
 import path from 'path';
 import { elizaLogger, stringToUuid } from "@elizaos/core";
@@ -6,7 +6,7 @@ import { TokenData, AgentMetadata } from './types';
 import { AgentNFT } from './contracts/AgentNFT';
 import { AgentNFT__factory } from './contracts/factories/AgentNFT__factory';
 import { Indexer, ZgFile } from '@0glabs/0g-ts-sdk';
-import { createVerify } from 'crypto';
+import SHA256 from 'crypto-js/sha256.js';
 
 export class AgentNFTClient {
     private provider: ethers.Provider;
@@ -127,12 +127,18 @@ export class AgentNFTClient {
             const tokenOwner = tokenData.owner.toLowerCase();
             elizaLogger.info("proof", proof);
             // parse proof and verify
-            const { signature, message } = JSON.parse(proof);
-            elizaLogger.info("signature", signature);
-            elizaLogger.info("message", message);
-            elizaLogger.info("signer", tokenOwner);
-            const isValid = createVerify('sha256').update(message).verify(tokenOwner, signature, 'base64');
-            return isValid;
+            let { signature, message } = JSON.parse(proof);
+            const messageHash = "0x" + SHA256(message).toString();
+            signature = ethers.Signature.from(signature);
+            const recoveredPublicKey = ethers.SigningKey.recoverPublicKey(
+                messageHash,
+                signature
+            );
+            elizaLogger.info("recoveredPublicKey", recoveredPublicKey);
+            const recoveredAddress = ethers.computeAddress(recoveredPublicKey);
+            elizaLogger.info("recoveredAddress", recoveredAddress);
+            elizaLogger.info("tokenOwner", tokenOwner);
+            return recoveredAddress.toLowerCase() === tokenOwner.toLowerCase();
         } catch (error) {
             elizaLogger.error(`Error when validating token ${tokenData.tokenId}:`, error);
             return false;
@@ -234,21 +240,30 @@ export class AgentNFTClient {
                 memory: path.join(this.baseDir, "database.sqlite")
             };
 
-            if (!fs.existsSync(agentMetadata.character) || !fs.existsSync(agentMetadata.memory)) {
-                elizaLogger.error("Agent metadata files do not exist");
-                throw new Error("Agent metadata files do not exist");
+            const agentMetadataDescription = {
+                character: path.join(this.baseDir, "character_description.json"),
+                memory: path.join(this.baseDir, "memory_description.json")
+            };
+
+            if (!fs.existsSync(agentMetadata.character) || !fs.existsSync(agentMetadataDescription.character)) {
+                elizaLogger.error("Required agent character file does not exist");
+                throw new Error("Required agent character file does not exist");
             }
 
             // upload data to storage network
             const { tx: _characterTx, root: characterRoot } = await this.uploadData(agentMetadata.character);
-            const { tx: _memoryTx, root: memoryRoot } = await this.uploadData(agentMetadata.memory);
-
-            // generate ownership proof
-            const proofs = await this.generateOwnershipProof(["preimage1", "preimage2"], [characterRoot, memoryRoot]);
-
+            let proofs: string[] = [];
+            let dataDescriptions: string[] = [];
+            if (fs.existsSync(agentMetadata.memory) && fs.existsSync(agentMetadataDescription.memory)) {
+                const { tx: _memoryTx, root: memoryRoot } = await this.uploadData(agentMetadata.memory);
+                proofs = await this.generateOwnershipProof(["preimage1", "preimage2"], [characterRoot, memoryRoot]);
+                dataDescriptions = [fs.readFileSync(agentMetadataDescription.character, 'utf8'), fs.readFileSync(agentMetadataDescription.memory, 'utf8')];
+            } else {
+                proofs = await this.generateOwnershipProof(["preimage1"], [characterRoot]);
+                dataDescriptions = [fs.readFileSync(agentMetadataDescription.character, 'utf8')];
+            }
             // create agent NFT
-            const tokenId = await this.mintToken(proofs, ["eliza_character", "eliza_memory"], this.signer.address);
-            // const tokenData = await this.getTokenData(tokenId);
+            const tokenId = await this.mintToken(proofs, dataDescriptions, this.signer.address);
             elizaLogger.info(`Agent NFT created successfully, token ID: ${tokenId}`);
             return tokenId;
         } catch (error) {
