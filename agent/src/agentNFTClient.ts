@@ -163,10 +163,11 @@ export class AgentNFTClient {
         try {
             // download data from 0G storage network
             for (const [hash, description] of dataHashes.map((hash, index) => [hash, dataDescriptions[index]])) {
-                if (description === "eliza_character") {
+                let descriptionObj = JSON.parse(description);
+                if (descriptionObj.type === "Eliza Character") {
                     await this.fetchData(hash, agentMetadata.character);
                 }
-                if (description === "eliza_memory") {
+                if (descriptionObj.type === "Eliza Memory") {
                     await this.fetchData(hash, agentMetadata.memory);
                 }
             }
