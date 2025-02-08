@@ -47,6 +47,11 @@ export const startAgents = async () => {
             return startAgent(character, directClient);
         };
 
+        for (const character of characters) {
+            const agent = await directClient.startAgent(character);
+            elizaLogger.info(`Agent ${character.name} started with ID: ${agent.agentId}`);
+        }
+
         directClient.start(serverPort);
 
         if (serverPort !== parseInt(settings.SERVER_PORT || "3000")) {
