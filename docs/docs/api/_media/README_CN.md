@@ -30,7 +30,7 @@
 
 ### 编辑.env文件
 
-- - 将 .env.example 复制为 .env 并填写适当的值
+-   - 将 .env.example 复制为 .env 并填写适当的值
 - 编辑推特环境并输入你的推特账号和密码
 
 ### 编辑角色文件
@@ -94,7 +94,6 @@ TWITTER_DRY_RUN=false
 TWITTER_USERNAME= # Account username
 TWITTER_PASSWORD= # Account password
 TWITTER_EMAIL= # Account email
-TWITTER_COOKIES= # Account cookies
 
 X_SERVER_URL=
 XAI_API_KEY=
@@ -104,6 +103,14 @@ XAI_MODEL=
 # For asking Claude stuff
 ANTHROPIC_API_KEY=
 
+# EVM
+EVM_PRIVATE_KEY=EXAMPLE_WALLET_PRIVATE_KEY
+
+# Solana
+SOLANA_PRIVATE_KEY=EXAMPLE_WALLET_PRIVATE_KEY
+SOLANA_PUBLIC_KEY=EXAMPLE_WALLET_PUBLIC_KEY
+
+# Fallback Wallet Configuration (deprecated)
 WALLET_PRIVATE_KEY=EXAMPLE_WALLET_PRIVATE_KEY
 WALLET_PUBLIC_KEY=EXAMPLE_WALLET_PUBLIC_KEY
 
@@ -111,7 +118,7 @@ BIRDEYE_API_KEY=
 
 SOL_ADDRESS=So11111111111111111111111111111111111111112
 SLIPPAGE=1
-RPC_URL=https://api.mainnet-beta.solana.com
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 HELIUS_API_KEY=
 
 

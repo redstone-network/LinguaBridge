@@ -41,6 +41,7 @@ The database schema includes several key tables:
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 ```
 
 2. **Initialize Core Tables**
@@ -48,30 +49,37 @@ CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
 ```sql
 -- Create base tables
 CREATE TABLE accounts (
-    "id" UUID PRIMARY KEY,
-    "createdAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "name" TEXT,
-    "username" TEXT,
-    "email" TEXT NOT NULL,
+    "username" TEXT UNIQUE,
+    "email" TEXT NOT NULL UNIQUE,
     "avatarUrl" TEXT,
     "details" JSONB DEFAULT '{}'::jsonb
 );
 
 CREATE TABLE rooms (
-    "id" UUID PRIMARY KEY,
-    "createdAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE memories (
-    "id" UUID PRIMARY KEY,
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "type" TEXT NOT NULL,
-    "createdAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "content" JSONB NOT NULL,
     "embedding" vector(1536),
     "userId" UUID REFERENCES accounts("id"),
     "agentId" UUID REFERENCES accounts("id"),
     "roomId" UUID REFERENCES rooms("id"),
-    "unique" BOOLEAN DEFAULT true NOT NULL
+    "isUnique" BOOLEAN DEFAULT true NOT NULL
+);
+
+CREATE TABLE participants (
+    "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    "userId" UUID REFERENCES accounts("id"),
+    "roomId" UUID REFERENCES rooms("id"),
+    "joinedAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
@@ -80,9 +88,12 @@ CREATE TABLE memories (
 ```sql
 CREATE INDEX idx_memories_embedding ON memories
     USING hnsw ("embedding" vector_cosine_ops);
+
 CREATE INDEX idx_memories_type_room ON memories("type", "roomId");
+
 CREATE INDEX idx_participants_user ON participants("userId");
 CREATE INDEX idx_participants_room ON participants("roomId");
+
 ```
 
 ### Connection Configuration
@@ -90,15 +101,15 @@ CREATE INDEX idx_participants_room ON participants("roomId");
 ```typescript
 // PostgreSQL Configuration
 const postgresConfig = {
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
 };
 
 // Supabase Configuration
 const supabaseConfig = {
-  supabaseUrl: process.env.SUPABASE_URL,
-  supabaseKey: process.env.SUPABASE_KEY,
+    supabaseUrl: process.env.SUPABASE_URL,
+    supabaseKey: process.env.SUPABASE_KEY,
 };
 ```
 
@@ -110,15 +121,15 @@ The memory system uses vector embeddings for semantic search:
 
 ```typescript
 async function storeMemory(runtime: IAgentRuntime, content: string) {
-  const embedding = await runtime.embed(content);
+    const embedding = await runtime.embed(content);
 
-  await runtime.databaseAdapter.createMemory({
-    type: "message",
-    content: { text: content },
-    embedding,
-    roomId: roomId,
-    userId: userId,
-  });
+    await runtime.databaseAdapter.createMemory({
+        type: "message",
+        content: { text: content },
+        embedding,
+        roomId: roomId,
+        userId: userId,
+    });
 }
 ```
 
@@ -126,13 +137,13 @@ async function storeMemory(runtime: IAgentRuntime, content: string) {
 
 ```typescript
 async function searchMemories(runtime: IAgentRuntime, query: string) {
-  const embedding = await runtime.embed(query);
+    const embedding = await runtime.embed(query);
 
-  return runtime.databaseAdapter.searchMemoriesByEmbedding(embedding, {
-    match_threshold: 0.8,
-    count: 10,
-    tableName: "memories",
-  });
+    return runtime.databaseAdapter.searchMemoriesByEmbedding(embedding, {
+        match_threshold: 0.8,
+        count: 10,
+        tableName: "memories",
+    });
 }
 ```
 
@@ -142,42 +153,42 @@ async function searchMemories(runtime: IAgentRuntime, query: string) {
 
 1. **Index Management**
 
-   - Use HNSW indexes for vector similarity search
-   - Create appropriate indexes for frequent query patterns
-   - Regularly analyze and update index statistics
+    - Use HNSW indexes for vector similarity search
+    - Create appropriate indexes for frequent query patterns
+    - Regularly analyze and update index statistics
 
 2. **Connection Pooling**
 
-   ```typescript
-   const pool = new Pool({
-     max: 20, // Maximum pool size
-     idleTimeoutMillis: 30000,
-     connectionTimeoutMillis: 2000,
-   });
-   ```
+    ```typescript
+    const pool = new Pool({
+        max: 20, // Maximum pool size
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 2000,
+    });
+    ```
 
 3. **Query Optimization**
-   - Use prepared statements
-   - Implement efficient pagination
-   - Optimize vector similarity searches
+    - Use prepared statements
+    - Implement efficient pagination
+    - Optimize vector similarity searches
 
 ### High Availability
 
 1. **Database Replication**
 
-   - Set up read replicas for scaling read operations
-   - Configure streaming replication for failover
-   - Implement connection retry logic
+    - Set up read replicas for scaling read operations
+    - Configure streaming replication for failover
+    - Implement connection retry logic
 
 2. **Backup Strategy**
 
-   ```sql
-   -- Regular backups
-   pg_dump -Fc mydb > backup.dump
+    ```sql
+    -- Regular backups
+    pg_dump -Fc mydb > backup.dump
 
-   -- Point-in-time recovery
-   pg_basebackup -D backup -Fp -Xs -P
-   ```
+    -- Point-in-time recovery
+    pg_basebackup -D backup -Fp -Xs -P
+    ```
 
 ## Security
 
@@ -207,9 +218,9 @@ GRANT USAGE ON SCHEMA public TO app_user;
 
 1. **Encryption**
 
-   - Use TLS for connections
-   - Encrypt sensitive data at rest
-   - Implement key rotation
+    - Use TLS for connections
+    - Encrypt sensitive data at rest
+    - Implement key rotation
 
 2. **Audit Logging**
 
@@ -230,13 +241,13 @@ CREATE TABLE logs (
 
 ```typescript
 async function checkDatabaseHealth(): Promise<boolean> {
-  try {
-    await db.query("SELECT 1");
-    return true;
-  } catch (error) {
-    console.error("Database health check failed:", error);
-    return false;
-  }
+    try {
+        await db.query("SELECT 1");
+        return true;
+    } catch (error) {
+        console.error("Database health check failed:", error);
+        return false;
+    }
 }
 ```
 
@@ -274,24 +285,24 @@ REINDEX INDEX idx_memories_embedding;
 
 1. **Archival Strategy**
 
-   - Archive old conversations
-   - Compress inactive memories
-   - Implement data retention policies
+    - Archive old conversations
+    - Compress inactive memories
+    - Implement data retention policies
 
 2. **Cleanup Jobs**
 
 ```typescript
 async function cleanupOldMemories() {
-  const cutoffDate = new Date();
-  cutoffDate.setMonth(cutoffDate.getMonth() - 6);
+    const cutoffDate = new Date();
+    cutoffDate.setMonth(cutoffDate.getMonth() - 6);
 
-  await db.query(
-    `
+    await db.query(
+        `
         DELETE FROM memories 
         WHERE "createdAt" < $1
     `,
-    [cutoffDate],
-  );
+        [cutoffDate],
+    );
 }
 ```
 
@@ -301,20 +312,20 @@ async function cleanupOldMemories() {
 
 1. **Connection Problems**
 
-   - Check connection pool settings
-   - Verify network connectivity
-   - Review firewall rules
+    - Check connection pool settings
+    - Verify network connectivity
+    - Review firewall rules
 
 2. **Performance Issues**
 
-   - Analyze query plans
-   - Check index usage
-   - Monitor resource utilization
+    - Analyze query plans
+    - Check index usage
+    - Monitor resource utilization
 
 3. **Vector Search Problems**
-   - Verify embedding dimensions
-   - Check similarity thresholds
-   - Review index configuration
+    - Verify embedding dimensions
+    - Check similarity thresholds
+    - Review index configuration
 
 ### Diagnostic Queries
 

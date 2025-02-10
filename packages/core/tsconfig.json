@@ -1,5 +1,4 @@
 {
-    "extends": "../../tsconfig.json",
     "compilerOptions": {
         "target": "ESNext",
         "module": "ESNext",
@@ -21,11 +20,7 @@
         "noEmitOnError": false,
         "moduleDetection": "force",
         "allowArbitraryExtensions": true,
-        "typeRoots": [
-            "./node_modules/@types",
-            "./types",
-            "./node_modules/jest/types"
-        ]
+        "customConditions": ["@elizaos/source"]
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules", "dist", "src/**/*.d.ts", "types/**/*.test.ts"]

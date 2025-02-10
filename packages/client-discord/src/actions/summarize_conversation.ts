@@ -1,9 +1,7 @@
-import fs from "fs";
-import { composeContext } from "@ai16z/eliza";
-import { generateText, splitChunks, trimTokens } from "@ai16z/eliza";
-import { getActorDetails } from "@ai16z/eliza";
-import { models } from "@ai16z/eliza";
-import { parseJSONObjectFromText } from "@ai16z/eliza";
+import { composeContext, getModelSettings } from "@elizaos/core";
+import { generateText, splitChunks, trimTokens } from "@elizaos/core";
+import { getActorDetails } from "@elizaos/core";
+import { parseJSONObjectFromText } from "@elizaos/core";
 import {
     Action,
     ActionExample,
@@ -14,7 +12,7 @@ import {
     Memory,
     ModelClass,
     State,
-} from "@ai16z/eliza";
+} from "@elizaos/core";
 export const summarizationTemplate = `# Summarized so far (we are adding to this)
 {{currentSummary}}
 
@@ -221,7 +219,6 @@ const summarizeAction = {
         // 2. get these memories from the database
         const memories = await runtime.messageManager.getMemories({
             roomId,
-            agentId: runtime.agentId,
             // subtract start from current time
             start: parseInt(start as string),
             end: parseInt(end as string),
@@ -249,12 +246,15 @@ const summarizeAction = {
 
         let currentSummary = "";
 
-        const model = models[runtime.character.settings.model];
-        const chunkSize = model.settings.maxContextLength - 1000;
+        const modelSettings = getModelSettings(
+            runtime.character.modelProvider,
+            ModelClass.SMALL
+        );
+        const chunkSize = modelSettings.maxOutputTokens - 1000;
 
         const chunks = await splitChunks(formattedMemories, chunkSize, 0);
 
-        const datestr = new Date().toUTCString().replace(/:/g, "-");
+        const _datestr = new Date().toUTCString().replace(/:/g, "-");
 
         state.memoriesWithAttachments = formattedMemories;
         state.objective = objective;
@@ -263,14 +263,15 @@ const summarizeAction = {
             const chunk = chunks[i];
             state.currentSummary = currentSummary;
             state.currentChunk = chunk;
+            const template = await trimTokens(
+                summarizationTemplate,
+                chunkSize + 500,
+                runtime
+            );
             const context = composeContext({
                 state,
                 // make sure it fits, we can pad the tokens a bit
-                template: trimTokens(
-                    summarizationTemplate,
-                    chunkSize + 500,
-                    "gpt-4o-mini"
-                ),
+                template,
             });
 
             const summary = await generateText({
@@ -300,9 +301,9 @@ ${currentSummary.trim()}
 `;
             await callback(callbackData);
         } else if (currentSummary.trim()) {
-            const summaryFilename = `content_cache/conversation_summary_${Date.now()}.txt`;
+            const summaryFilename = `content/conversation_summary_${Date.now()}`;
+            await runtime.cacheManager.set(summaryFilename, currentSummary);
             // save the summary to a file
-            fs.writeFileSync(summaryFilename, currentSummary);
             await callback(
                 {
                     ...callbackData,
@@ -380,7 +381,7 @@ ${currentSummary.trim()}
             {
                 user: "{{user2}}",
                 content: {
-                    text: "no probblem, give me a few minutes to read through everything",
+                    text: "no problem, give me a few minutes to read through everything",
                     action: "SUMMARIZE",
                 },
             },

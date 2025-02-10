@@ -1,22 +1,41 @@
 export * from "./sqliteTables.ts";
 export * from "./types.ts";
 
-import { v4 } from "uuid";
-import { DatabaseAdapter } from "@ai16z/eliza";
 import {
     Account,
     Actor,
+    DatabaseAdapter,
     GoalStatus,
+    IDatabaseCacheAdapter,
+    Participant,
     type Goal,
     type Memory,
     type Relationship,
     type UUID,
-    Participant,
-} from "@ai16z/eliza";
+    RAGKnowledgeItem,
+    elizaLogger
+} from "@elizaos/core";
+import { v4 } from "uuid";
 import { sqliteTables } from "./sqliteTables.ts";
 import { Database } from "./types.ts";
 
-export class SqlJsDatabaseAdapter extends DatabaseAdapter {
+export class SqlJsDatabaseAdapter
+    extends DatabaseAdapter<Database>
+    implements IDatabaseCacheAdapter
+{
+    constructor(db: Database) {
+        super();
+        this.db = db;
+    }
+
+    async init() {
+        this.db.exec(sqliteTables);
+    }
+
+    async close() {
+        this.db.close();
+    }
+
     async getRoom(roomId: UUID): Promise<UUID | null> {
         const sql = "SELECT id FROM rooms WHERE id = ?";
         const stmt = this.db.prepare(sql);
@@ -59,19 +78,21 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
     }
 
     async getMemoriesByRoomIds(params: {
+        agentId: UUID;
         roomIds: UUID[];
         tableName: string;
-        agentId?: UUID;
     }): Promise<Memory[]> {
         const placeholders = params.roomIds.map(() => "?").join(", ");
-        let sql = `SELECT * FROM memories WHERE type = ? AND roomId IN (${placeholders})`;
+        const sql = `SELECT * FROM memories WHERE 'type' = ? AND agentId = ? AND roomId IN (${placeholders})`;
         const stmt = this.db.prepare(sql);
-        const queryParams = [params.tableName, ...params.roomIds];
-        if (params.agentId) {
-            sql += " AND userId = ?";
-            queryParams.push(params.agentId);
-        }
+        const queryParams = [
+            params.tableName,
+            params.agentId,
+            ...params.roomIds,
+        ];
+        elizaLogger.log({ queryParams });
         stmt.bind(queryParams);
+        elizaLogger.log({ queryParams });
 
         const memories: Memory[] = [];
         while (stmt.step()) {
@@ -111,21 +132,6 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
         return userIds;
     }
 
-    constructor(db: Database) {
-        super();
-        this.db = db;
-
-        // Check if the 'accounts' table exists as a representative table
-        const tableExists = this.db.exec(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'"
-        )[0];
-
-        if (!tableExists) {
-            // If the 'accounts' table doesn't exist, create all the tables
-            this.db.exec(sqliteTables);
-        }
-    }
-
     async getAccountById(userId: UUID): Promise<Account | null> {
         const sql = "SELECT * FROM accounts WHERE id = ?";
         const stmt = this.db.prepare(sql);
@@ -158,7 +164,7 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
             stmt.free();
             return true;
         } catch (error) {
-            console.log("Error creating account", error);
+            elizaLogger.error("Error creating account", error);
             return false;
         }
     }
@@ -227,6 +233,7 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
             const similarMemories = await this.searchMemoriesByEmbedding(
                 memory.embedding,
                 {
+                    agentId: memory.agentId,
                     tableName,
                     roomId: memory.roomId,
                     match_threshold: 0.95, // 5% similarity threshold
@@ -259,6 +266,7 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
 
     async searchMemories(params: {
         tableName: string;
+        agentId: UUID;
         roomId: UUID;
         embedding: number[];
         match_threshold: number;
@@ -271,7 +279,7 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
             // TODO: Uncomment when we compile sql.js with vss
             // `, (1 - vss_distance_l2(embedding, ?)) AS similarity` +
             ` FROM memories
-  WHERE type = ?
+  WHERE type = ? AND agentId = ?
   AND roomId = ?`;
 
         if (params.unique) {
@@ -283,6 +291,7 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
         stmt.bind([
             // JSON.stringify(params.embedding),
             params.tableName,
+            params.agentId,
             params.roomId,
             // params.match_count,
         ]);
@@ -303,10 +312,10 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
     async searchMemoriesByEmbedding(
         _embedding: number[],
         params: {
+            agentId: UUID;
             match_threshold?: number;
             count?: number;
             roomId?: UUID;
-            agentId?: UUID;
             unique?: boolean;
             tableName: string;
         }
@@ -316,7 +325,7 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
             // TODO: Uncomment when we compile sql.js with vss
             // `, (1 - vss_distance_l2(embedding, ?)) AS similarity`+
             ` FROM memories
-        WHERE type = ?`;
+        WHERE type = ? AND agentId = ?`;
 
         if (params.unique) {
             sql += " AND `unique` = 1";
@@ -339,6 +348,7 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
         const bindings = [
             // JSON.stringify(embedding),
             params.tableName,
+            params.agentId,
         ];
         if (params.roomId) {
             bindings.push(params.roomId);
@@ -625,7 +635,7 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
             stmt.run([roomId ?? (v4() as UUID)]);
             stmt.free();
         } catch (error) {
-            console.log("Error creating room", error);
+            elizaLogger.error("Error creating room", error);
         }
         return roomId as UUID;
     }
@@ -677,7 +687,7 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
             stmt.free();
             return true;
         } catch (error) {
-            console.log("Error adding participant", error);
+            elizaLogger.error("Error adding participant", error);
             return false;
         }
     }
@@ -691,7 +701,7 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
             stmt.free();
             return true;
         } catch (error) {
-            console.log("Error removing participant", error);
+            elizaLogger.error("Error removing participant", error);
             return false;
         }
     }
@@ -727,7 +737,7 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
             }
             stmt.free();
         } catch (error) {
-            console.log("Error fetching relationship", error);
+            elizaLogger.error("Error fetching relationship", error);
         }
         return relationship;
     }
@@ -744,5 +754,241 @@ export class SqlJsDatabaseAdapter extends DatabaseAdapter {
         }
         stmt.free();
         return relationships;
+    }
+
+    async getCache(params: {
+        key: string;
+        agentId: UUID;
+    }): Promise<string | undefined> {
+        const sql = "SELECT value FROM cache WHERE (key = ? AND agentId = ?)";
+        const stmt = this.db.prepare(sql);
+
+        stmt.bind([params.key, params.agentId]);
+
+        let cached: { value: string } | undefined = undefined;
+        if (stmt.step()) {
+            cached = stmt.getAsObject() as unknown as { value: string };
+        }
+        stmt.free();
+
+        return cached?.value ?? undefined;
+    }
+
+    async setCache(params: {
+        key: string;
+        agentId: UUID;
+        value: string;
+    }): Promise<boolean> {
+        const sql =
+            "INSERT OR REPLACE INTO cache (key, agentId, value, createdAt) VALUES (?, ?, ?, CURRENT_TIMESTAMP)";
+        const stmt = this.db.prepare(sql);
+
+        stmt.run([params.key, params.agentId, params.value]);
+        stmt.free();
+
+        return true;
+    }
+
+    async deleteCache(params: {
+        key: string;
+        agentId: UUID;
+    }): Promise<boolean> {
+        try {
+            const sql = "DELETE FROM cache WHERE key = ? AND agentId = ?";
+            const stmt = this.db.prepare(sql);
+            stmt.run([params.key, params.agentId]);
+            stmt.free();
+            return true;
+        } catch (error) {
+            elizaLogger.error("Error removing cache", error);
+            return false;
+        }
+    }
+
+    async getKnowledge(params: {
+        id?: UUID;
+        agentId: UUID;
+        limit?: number;
+        query?: string;
+    }): Promise<RAGKnowledgeItem[]> {
+        let sql = `SELECT * FROM knowledge WHERE ("agentId" = ? OR "isShared" = 1)`;
+        const queryParams: any[] = [params.agentId];
+
+        if (params.id) {
+            sql += ` AND id = ?`;
+            queryParams.push(params.id);
+        }
+
+        if (params.limit) {
+            sql += ` LIMIT ?`;
+            queryParams.push(params.limit);
+        }
+
+        const stmt = this.db.prepare(sql);
+        stmt.bind(queryParams);
+        const results: RAGKnowledgeItem[] = [];
+
+        while (stmt.step()) {
+            const row = stmt.getAsObject() as any;
+            results.push({
+                id: row.id,
+                agentId: row.agentId,
+                content: JSON.parse(row.content),
+                embedding: row.embedding ? new Float32Array(row.embedding) : undefined, // Convert Uint8Array back to Float32Array
+                createdAt: row.createdAt
+            });
+        }
+        stmt.free();
+        return results;
+    }
+
+    async searchKnowledge(params: {
+        agentId: UUID;
+        embedding: Float32Array;
+        match_threshold: number;
+        match_count: number;
+        searchText?: string;
+    }): Promise<RAGKnowledgeItem[]> {
+        const cacheKey = `embedding_${params.agentId}_${params.searchText}`;
+        const cachedResult = await this.getCache({
+            key: cacheKey,
+            agentId: params.agentId
+        });
+
+        if (cachedResult) {
+            return JSON.parse(cachedResult);
+        }
+
+        const sql = `
+            WITH vector_scores AS (
+                SELECT id,
+                        1 / (1 + vec_distance_L2(embedding, ?)) as vector_score
+                FROM knowledge
+                WHERE ("agentId" IS NULL AND "isShared" = 1) OR "agentId" = ?
+                AND embedding IS NOT NULL
+            ),
+            keyword_matches AS (
+                SELECT id,
+                CASE
+                    WHEN json_extract(content, '$.text') LIKE ? THEN 3.0
+                    ELSE 1.0
+                END *
+                CASE
+                    WHEN json_extract(content, '$.metadata.isChunk') = 1 THEN 1.5
+                    WHEN json_extract(content, '$.metadata.isMain') = 1 THEN 1.2
+                    ELSE 1.0
+                END as keyword_score
+                FROM knowledge
+                WHERE ("agentId" IS NULL AND "isShared" = 1) OR "agentId" = ?
+            )
+            SELECT k.*,
+                v.vector_score,
+                kw.keyword_score,
+                (v.vector_score * kw.keyword_score) as combined_score
+            FROM knowledge k
+            JOIN vector_scores v ON k.id = v.id
+            LEFT JOIN keyword_matches kw ON k.id = kw.id
+            WHERE (k.agentId IS NULL AND k.isShared = 1) OR k.agentId = ?
+            AND (
+                v.vector_score >= ?  -- Using match_threshold parameter
+                OR (kw.keyword_score > 1.0 AND v.vector_score >= 0.3)
+            )
+            ORDER BY combined_score DESC
+            LIMIT ?
+        `;
+
+        const stmt = this.db.prepare(sql);
+        stmt.bind([
+            new Uint8Array(params.embedding.buffer),
+            params.agentId,
+            `%${params.searchText || ''}%`,
+            params.agentId,
+            params.agentId,
+            params.match_threshold,
+            params.match_count
+        ]);
+
+        const results: RAGKnowledgeItem[] = [];
+        while (stmt.step()) {
+            const row = stmt.getAsObject() as any;
+            results.push({
+                id: row.id,
+                agentId: row.agentId,
+                content: JSON.parse(row.content),
+                embedding: row.embedding ? new Float32Array(row.embedding) : undefined,
+                createdAt: row.createdAt,
+                similarity: row.keyword_score
+            });
+        }
+        stmt.free();
+
+        await this.setCache({
+            key: cacheKey,
+            agentId: params.agentId,
+            value: JSON.stringify(results)
+        });
+
+        return results;
+    }
+
+    async createKnowledge(knowledge: RAGKnowledgeItem): Promise<void> {
+        try {
+            const sql = `
+                INSERT INTO knowledge (
+                    id, "agentId", content, embedding, "createdAt",
+                    "isMain", "originalId", "chunkIndex", "isShared"
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+
+            const stmt = this.db.prepare(sql);
+            const metadata = knowledge.content.metadata || {};
+
+            stmt.run([
+                knowledge.id,
+                metadata.isShared ? null : knowledge.agentId,
+                JSON.stringify(knowledge.content),
+                knowledge.embedding ? new Uint8Array(knowledge.embedding.buffer) : null,
+                knowledge.createdAt || Date.now(),
+                metadata.isMain ? 1 : 0,
+                metadata.originalId || null,
+                metadata.chunkIndex || null,
+                metadata.isShared ? 1 : 0
+            ]);
+            stmt.free();
+        } catch (error: any) {
+            const isShared = knowledge.content.metadata?.isShared;
+            const isPrimaryKeyError = error?.code === 'SQLITE_CONSTRAINT_PRIMARYKEY';
+
+            if (isShared && isPrimaryKeyError) {
+                elizaLogger.info(`Shared knowledge ${knowledge.id} already exists, skipping`);
+                return;
+            } else if (!isShared && !error.message?.includes('SQLITE_CONSTRAINT_PRIMARYKEY')) {
+                elizaLogger.error(`Error creating knowledge ${knowledge.id}:`, {
+                    error,
+                    embeddingLength: knowledge.embedding?.length,
+                    content: knowledge.content
+                });
+                throw error;
+            }
+
+            elizaLogger.debug(`Knowledge ${knowledge.id} already exists, skipping`);
+        }
+    }
+
+    async removeKnowledge(id: UUID): Promise<void> {
+        const sql = `DELETE FROM knowledge WHERE id = ?`;
+        const stmt = this.db.prepare(sql);
+        stmt.run([id]);
+        stmt.free();
+    }
+
+    async clearKnowledge(agentId: UUID, shared?: boolean): Promise<void> {
+        const sql = shared ?
+            `DELETE FROM knowledge WHERE ("agentId" = ? OR "isShared" = 1)` :
+            `DELETE FROM knowledge WHERE "agentId" = ?`;
+
+        const stmt = this.db.prepare(sql);
+        stmt.run([agentId]);
+        stmt.free();
     }
 }

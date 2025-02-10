@@ -1,8 +1,8 @@
-[@ai16z/eliza v1.0.0](../index.md) / Memory
+[@elizaos/core v0.1.7](../index.md) / Memory
 
 # Interface: Memory
 
-Represents a memory record, which could be a message or any other piece of information remembered by the system, including its content, associated user IDs, and optionally, its embedding vector for similarity comparisons.
+Represents a stored memory/message
 
 ## Properties
 
@@ -10,9 +10,11 @@ Represents a memory record, which could be a message or any other piece of infor
 
 > `optional` **id**: \`$\{string\}-$\{string\}-$\{string\}-$\{string\}-$\{string\}\`
 
+Optional unique identifier
+
 #### Defined in
 
-[packages/core/src/types.ts:169](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L169)
+[packages/core/src/types.ts:338](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L338)
 
 ---
 
@@ -20,9 +22,11 @@ Represents a memory record, which could be a message or any other piece of infor
 
 > **userId**: \`$\{string\}-$\{string\}-$\{string\}-$\{string\}-$\{string\}\`
 
+Associated user ID
+
 #### Defined in
 
-[packages/core/src/types.ts:170](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L170)
+[packages/core/src/types.ts:341](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L341)
 
 ---
 
@@ -30,9 +34,11 @@ Represents a memory record, which could be a message or any other piece of infor
 
 > **agentId**: \`$\{string\}-$\{string\}-$\{string\}-$\{string\}-$\{string\}\`
 
+Associated agent ID
+
 #### Defined in
 
-[packages/core/src/types.ts:171](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L171)
+[packages/core/src/types.ts:344](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L344)
 
 ---
 
@@ -40,9 +46,11 @@ Represents a memory record, which could be a message or any other piece of infor
 
 > `optional` **createdAt**: `number`
 
+Optional creation timestamp
+
 #### Defined in
 
-[packages/core/src/types.ts:172](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L172)
+[packages/core/src/types.ts:347](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L347)
 
 ---
 
@@ -50,9 +58,11 @@ Represents a memory record, which could be a message or any other piece of infor
 
 > **content**: [`Content`](Content.md)
 
+Memory content
+
 #### Defined in
 
-[packages/core/src/types.ts:173](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L173)
+[packages/core/src/types.ts:350](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L350)
 
 ---
 
@@ -60,9 +70,11 @@ Represents a memory record, which could be a message or any other piece of infor
 
 > `optional` **embedding**: `number`[]
 
+Optional embedding vector
+
 #### Defined in
 
-[packages/core/src/types.ts:174](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L174)
+[packages/core/src/types.ts:353](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L353)
 
 ---
 
@@ -70,9 +82,11 @@ Represents a memory record, which could be a message or any other piece of infor
 
 > **roomId**: \`$\{string\}-$\{string\}-$\{string\}-$\{string\}-$\{string\}\`
 
+Associated room ID
+
 #### Defined in
 
-[packages/core/src/types.ts:175](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L175)
+[packages/core/src/types.ts:356](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L356)
 
 ---
 
@@ -80,6 +94,20 @@ Represents a memory record, which could be a message or any other piece of infor
 
 > `optional` **unique**: `boolean`
 
+Whether memory is unique
+
 #### Defined in
 
-[packages/core/src/types.ts:176](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L176)
+[packages/core/src/types.ts:359](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L359)
+
+---
+
+### similarity?
+
+> `optional` **similarity**: `number`
+
+Embedding similarity score
+
+#### Defined in
+
+[packages/core/src/types.ts:362](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L362)

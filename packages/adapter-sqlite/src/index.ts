@@ -1,8 +1,11 @@
 export * from "./sqliteTables.ts";
 export * from "./sqlite_vec.ts";
 
-import { DatabaseAdapter } from "@ai16z/eliza";
-import { embeddingZeroVector } from "@ai16z/eliza";
+import {
+    DatabaseAdapter,
+    elizaLogger,
+    IDatabaseCacheAdapter,
+} from "@elizaos/core";
 import {
     Account,
     Actor,
@@ -12,13 +15,17 @@ import {
     type Memory,
     type Relationship,
     type UUID,
-} from "@ai16z/eliza";
+    RAGKnowledgeItem,
+} from "@elizaos/core";
 import { Database } from "better-sqlite3";
 import { v4 } from "uuid";
 import { load } from "./sqlite_vec.ts";
 import { sqliteTables } from "./sqliteTables.ts";
 
-export class SqliteDatabaseAdapter extends DatabaseAdapter {
+export class SqliteDatabaseAdapter
+    extends DatabaseAdapter<Database>
+    implements IDatabaseCacheAdapter
+{
     async getRoom(roomId: UUID): Promise<UUID | null> {
         const sql = "SELECT id FROM rooms WHERE id = ?";
         const room = this.db.prepare(sql).get(roomId) as
@@ -71,18 +78,14 @@ export class SqliteDatabaseAdapter extends DatabaseAdapter {
         super();
         this.db = db;
         load(db);
+    }
 
-        // Check if the 'accounts' table exists as a representative table
-        const tableExists = this.db
-            .prepare(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'"
-            )
-            .get();
+    async init() {
+        this.db.exec(sqliteTables);
+    }
 
-        if (!tableExists) {
-            // If the 'accounts' table doesn't exist, create all the tables
-            this.db.exec(sqliteTables);
-        }
+    async close() {
+        this.db.close();
     }
 
     async getAccountById(userId: UUID): Promise<Account | null> {
@@ -148,22 +151,21 @@ export class SqliteDatabaseAdapter extends DatabaseAdapter {
     }
 
     async getMemoriesByRoomIds(params: {
+        agentId: UUID;
         roomIds: UUID[];
         tableName: string;
-        agentId?: UUID;
     }): Promise<Memory[]> {
         if (!params.tableName) {
             // default to messages
             params.tableName = "messages";
         }
         const placeholders = params.roomIds.map(() => "?").join(", ");
-        let sql = `SELECT * FROM memories WHERE type = ? AND roomId IN (${placeholders})`;
-        let queryParams = [params.tableName, ...params.roomIds];
-
-        if (params.agentId) {
-            sql += ` AND agentId = ?`;
-            queryParams.push(params.agentId);
-        }
+        const sql = `SELECT * FROM memories WHERE type = ? AND agentId = ? AND roomId IN (${placeholders})`;
+        const queryParams = [
+            params.tableName,
+            params.agentId,
+            ...params.roomIds,
+        ];
 
         const stmt = this.db.prepare(sql);
         const rows = stmt.all(...queryParams) as (Memory & {
@@ -194,8 +196,8 @@ export class SqliteDatabaseAdapter extends DatabaseAdapter {
 
     async createMemory(memory: Memory, tableName: string): Promise<void> {
         // Delete any existing memory with the same ID first
-        const deleteSql = `DELETE FROM memories WHERE id = ? AND type = ?`;
-        this.db.prepare(deleteSql).run(memory.id, tableName);
+        // const deleteSql = `DELETE FROM memories WHERE id = ? AND type = ?`;
+        // this.db.prepare(deleteSql).run(memory.id, tableName);
 
         let isUnique = true;
 
@@ -205,6 +207,7 @@ export class SqliteDatabaseAdapter extends DatabaseAdapter {
                 memory.embedding,
                 {
                     tableName,
+                    agentId: memory.agentId,
                     roomId: memory.roomId,
                     match_threshold: 0.95, // 5% similarity threshold
                     count: 1,
@@ -217,19 +220,27 @@ export class SqliteDatabaseAdapter extends DatabaseAdapter {
         const content = JSON.stringify(memory.content);
         const createdAt = memory.createdAt ?? Date.now();
 
+        let embeddingValue: Float32Array = new Float32Array(384);
+        // If embedding is not available, we just load an array with a length of 384
+        if (memory?.embedding && memory?.embedding?.length > 0) {
+            embeddingValue = new Float32Array(memory.embedding);
+        }
+
         // Insert the memory with the appropriate 'unique' value
         const sql = `INSERT OR REPLACE INTO memories (id, type, content, embedding, userId, roomId, agentId, \`unique\`, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-        this.db.prepare(sql).run(
-            memory.id ?? v4(),
-            tableName,
-            content,
-            new Float32Array(memory.embedding ?? embeddingZeroVector), // Store as Float32Array
-            memory.userId,
-            memory.roomId,
-            memory.agentId,
-            isUnique ? 1 : 0,
-            createdAt
-        );
+        this.db
+            .prepare(sql)
+            .run(
+                memory.id ?? v4(),
+                tableName,
+                content,
+                embeddingValue,
+                memory.userId,
+                memory.roomId,
+                memory.agentId,
+                isUnique ? 1 : 0,
+                createdAt
+            );
     }
 
     async searchMemories(params: {
@@ -250,8 +261,8 @@ export class SqliteDatabaseAdapter extends DatabaseAdapter {
 
         let sql = `
             SELECT *, vec_distance_L2(embedding, ?) AS similarity
-            FROM memories 
-            WHERE type = ? 
+            FROM memories
+            WHERE type = ?
             AND roomId = ?`;
 
         if (params.unique) {
@@ -286,7 +297,7 @@ export class SqliteDatabaseAdapter extends DatabaseAdapter {
             match_threshold?: number;
             count?: number;
             roomId?: UUID;
-            agentId?: UUID;
+            agentId: UUID;
             unique?: boolean;
             tableName: string;
         }
@@ -295,19 +306,16 @@ export class SqliteDatabaseAdapter extends DatabaseAdapter {
             // JSON.stringify(embedding),
             new Float32Array(embedding),
             params.tableName,
+            params.agentId,
         ];
 
         let sql = `
       SELECT *, vec_distance_L2(embedding, ?) AS similarity
       FROM memories
-      WHERE type = ?`;
+      WHERE embedding IS NOT NULL AND type = ? AND agentId = ?`;
 
         if (params.unique) {
             sql += " AND `unique` = 1";
-        }
-        if (params.agentId) {
-            sql += " AND agentId = ?";
-            queryParams.push(params.agentId);
         }
 
         if (params.roomId) {
@@ -345,24 +353,24 @@ export class SqliteDatabaseAdapter extends DatabaseAdapter {
         // First get content text and calculate Levenshtein distance
         const sql = `
             WITH content_text AS (
-                SELECT 
+                SELECT
                     embedding,
                     json_extract(
                         json(content),
                         '$.' || ? || '.' || ?
                     ) as content_text
-                FROM memories 
+                FROM memories
                 WHERE type = ?
                 AND json_extract(
                     json(content),
                     '$.' || ? || '.' || ?
                 ) IS NOT NULL
             )
-            SELECT 
+            SELECT
                 embedding,
                 length(?) + length(content_text) - (
                     length(?) + length(content_text) - (
-                        length(replace(lower(?), lower(content_text), '')) + 
+                        length(replace(lower(?), lower(content_text), '')) +
                         length(replace(lower(content_text), lower(?), ''))
                     ) / 2
                 ) as levenshtein_score
@@ -423,7 +431,7 @@ export class SqliteDatabaseAdapter extends DatabaseAdapter {
         count?: number;
         unique?: boolean;
         tableName: string;
-        agentId?: UUID;
+        agentId: UUID;
         start?: number;
         end?: number;
     }): Promise<Memory[]> {
@@ -433,17 +441,16 @@ export class SqliteDatabaseAdapter extends DatabaseAdapter {
         if (!params.roomId) {
             throw new Error("roomId is required");
         }
-        let sql = `SELECT * FROM memories WHERE type = ? AND roomId = ?`;
+        let sql = `SELECT * FROM memories WHERE type = ? AND agentId = ? AND roomId = ?`;
 
-        const queryParams = [params.tableName, params.roomId] as any[];
+        const queryParams = [
+            params.tableName,
+            params.agentId,
+            params.roomId,
+        ] as any[];
 
         if (params.unique) {
             sql += " AND `unique` = 1";
-        }
-
-        if (params.agentId) {
-            sql += " AND agentId = ?";
-            queryParams.push(params.agentId);
         }
 
         if (params.start) {
@@ -675,5 +682,269 @@ export class SqliteDatabaseAdapter extends DatabaseAdapter {
         return this.db
             .prepare(sql)
             .all(params.userId, params.userId) as Relationship[];
+    }
+
+    async getCache(params: {
+        key: string;
+        agentId: UUID;
+    }): Promise<string | undefined> {
+        const sql = "SELECT value FROM cache WHERE (key = ? AND agentId = ?)";
+        const cached = this.db
+            .prepare<[string, UUID], { value: string }>(sql)
+            .get(params.key, params.agentId);
+
+        return cached?.value ?? undefined;
+    }
+
+    async setCache(params: {
+        key: string;
+        agentId: UUID;
+        value: string;
+    }): Promise<boolean> {
+        const sql =
+            "INSERT OR REPLACE INTO cache (key, agentId, value, createdAt) VALUES (?, ?, ?, CURRENT_TIMESTAMP)";
+        this.db.prepare(sql).run(params.key, params.agentId, params.value);
+        return true;
+    }
+
+    async deleteCache(params: {
+        key: string;
+        agentId: UUID;
+    }): Promise<boolean> {
+        try {
+            const sql = "DELETE FROM cache WHERE key = ? AND agentId = ?";
+            this.db.prepare(sql).run(params.key, params.agentId);
+            return true;
+        } catch (error) {
+            console.log("Error removing cache", error);
+            return false;
+        }
+    }
+
+    async getKnowledge(params: {
+        id?: UUID;
+        agentId: UUID;
+        limit?: number;
+        query?: string;
+    }): Promise<RAGKnowledgeItem[]> {
+        let sql = `SELECT * FROM knowledge WHERE (agentId = ? OR isShared = 1)`;
+        const queryParams: any[] = [params.agentId];
+
+        if (params.id) {
+            sql += ` AND id = ?`;
+            queryParams.push(params.id);
+        }
+
+        if (params.limit) {
+            sql += ` LIMIT ?`;
+            queryParams.push(params.limit);
+        }
+
+        interface KnowledgeRow {
+            id: UUID;
+            agentId: UUID;
+            content: string;
+            embedding: Buffer | null;
+            createdAt: string | number;
+        }
+
+        const rows = this.db.prepare(sql).all(...queryParams) as KnowledgeRow[];
+
+        return rows.map((row) => ({
+            id: row.id,
+            agentId: row.agentId,
+            content: JSON.parse(row.content),
+            embedding: row.embedding
+                ? new Float32Array(row.embedding)
+                : undefined,
+            createdAt:
+                typeof row.createdAt === "string"
+                    ? Date.parse(row.createdAt)
+                    : row.createdAt,
+        }));
+    }
+
+    async searchKnowledge(params: {
+        agentId: UUID;
+        embedding: Float32Array;
+        match_threshold: number;
+        match_count: number;
+        searchText?: string;
+    }): Promise<RAGKnowledgeItem[]> {
+        const cacheKey = `embedding_${params.agentId}_${params.searchText}`;
+        const cachedResult = await this.getCache({
+            key: cacheKey,
+            agentId: params.agentId,
+        });
+
+        if (cachedResult) {
+            return JSON.parse(cachedResult);
+        }
+
+        interface KnowledgeSearchRow {
+            id: UUID;
+            agentId: UUID;
+            content: string;
+            embedding: Buffer | null;
+            createdAt: string | number;
+            vector_score: number;
+            keyword_score: number;
+            combined_score: number;
+        }
+
+        const sql = `
+            WITH vector_scores AS (
+                SELECT id,
+                        1 / (1 + vec_distance_L2(embedding, ?)) as vector_score
+                FROM knowledge
+                WHERE (agentId IS NULL AND isShared = 1) OR agentId = ?
+                AND embedding IS NOT NULL
+            ),
+            keyword_matches AS (
+                SELECT id,
+                CASE
+                    WHEN lower(json_extract(content, '$.text')) LIKE ? THEN 3.0
+                    ELSE 1.0
+                END *
+                CASE
+                    WHEN json_extract(content, '$.metadata.isChunk') = 1 THEN 1.5
+                    WHEN json_extract(content, '$.metadata.isMain') = 1 THEN 1.2
+                    ELSE 1.0
+                END as keyword_score
+                FROM knowledge
+                WHERE (agentId IS NULL AND isShared = 1) OR agentId = ?
+            )
+            SELECT k.*,
+                v.vector_score,
+                kw.keyword_score,
+                (v.vector_score * kw.keyword_score) as combined_score
+            FROM knowledge k
+            JOIN vector_scores v ON k.id = v.id
+            LEFT JOIN keyword_matches kw ON k.id = kw.id
+            WHERE (k.agentId IS NULL AND k.isShared = 1) OR k.agentId = ?
+            AND (
+                v.vector_score >= ?  -- Using match_threshold parameter
+                OR (kw.keyword_score > 1.0 AND v.vector_score >= 0.3)
+            )
+            ORDER BY combined_score DESC
+            LIMIT ?
+        `;
+
+        const searchParams = [
+            params.embedding,
+            params.agentId,
+            `%${params.searchText?.toLowerCase() || ""}%`,
+            params.agentId,
+            params.agentId,
+            params.match_threshold,
+            params.match_count,
+        ];
+
+        try {
+            const rows = this.db
+                .prepare(sql)
+                .all(...searchParams) as KnowledgeSearchRow[];
+            const results = rows.map((row) => ({
+                id: row.id,
+                agentId: row.agentId,
+                content: JSON.parse(row.content),
+                embedding: row.embedding
+                    ? new Float32Array(row.embedding)
+                    : undefined,
+                createdAt:
+                    typeof row.createdAt === "string"
+                        ? Date.parse(row.createdAt)
+                        : row.createdAt,
+                similarity: row.combined_score,
+            }));
+
+            await this.setCache({
+                key: cacheKey,
+                agentId: params.agentId,
+                value: JSON.stringify(results),
+            });
+
+            return results;
+        } catch (error) {
+            elizaLogger.error("Error in searchKnowledge:", error);
+            throw error;
+        }
+    }
+
+    async createKnowledge(knowledge: RAGKnowledgeItem): Promise<void> {
+        try {
+            this.db.transaction(() => {
+                const sql = `
+                    INSERT INTO knowledge (
+                    id, agentId, content, embedding, createdAt,
+                    isMain, originalId, chunkIndex, isShared
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `;
+
+                const embeddingArray = knowledge.embedding || null;
+
+                const metadata = knowledge.content.metadata || {};
+                const isShared = metadata.isShared ? 1 : 0;
+
+                this.db
+                    .prepare(sql)
+                    .run(
+                        knowledge.id,
+                        metadata.isShared ? null : knowledge.agentId,
+                        JSON.stringify(knowledge.content),
+                        embeddingArray,
+                        knowledge.createdAt || Date.now(),
+                        metadata.isMain ? 1 : 0,
+                        metadata.originalId || null,
+                        metadata.chunkIndex || null,
+                        isShared
+                    );
+            })();
+        } catch (error: any) {
+            const isShared = knowledge.content.metadata?.isShared;
+            const isPrimaryKeyError =
+                error?.code === "SQLITE_CONSTRAINT_PRIMARYKEY";
+
+            if (isShared && isPrimaryKeyError) {
+                elizaLogger.info(
+                    `Shared knowledge ${knowledge.id} already exists, skipping`
+                );
+                return;
+            } else if (
+                !isShared &&
+                !error.message?.includes("SQLITE_CONSTRAINT_PRIMARYKEY")
+            ) {
+                elizaLogger.error(`Error creating knowledge ${knowledge.id}:`, {
+                    error,
+                    embeddingLength: knowledge.embedding?.length,
+                    content: knowledge.content,
+                });
+                throw error;
+            }
+
+            elizaLogger.debug(
+                `Knowledge ${knowledge.id} already exists, skipping`
+            );
+        }
+    }
+
+    async removeKnowledge(id: UUID): Promise<void> {
+        const sql = `DELETE FROM knowledge WHERE id = ?`;
+        this.db.prepare(sql).run(id);
+    }
+
+    async clearKnowledge(agentId: UUID, shared?: boolean): Promise<void> {
+        const sql = shared
+            ? `DELETE FROM knowledge WHERE (agentId = ? OR isShared = 1)`
+            : `DELETE FROM knowledge WHERE agentId = ?`;
+        try {
+            this.db.prepare(sql).run(agentId);
+        } catch (error) {
+            elizaLogger.error(
+                `Error clearing knowledge for agent ${agentId}:`,
+                error
+            );
+            throw error;
+        }
     }
 }

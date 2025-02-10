@@ -1,6 +1,16 @@
+// eslint-disable-next-line
 // @ts-nocheck
 // src/actions/joinVoice
-import { joinVoiceChannel } from "@discordjs/voice";
+import {
+    Action,
+    ActionExample,
+    composeContext,
+    IAgentRuntime,
+    Memory,
+    State,
+    generateText,
+    ModelClass,
+} from "@elizaos/core";
 import {
     Channel,
     ChannelType,
@@ -9,14 +19,7 @@ import {
     Guild,
     GuildMember,
 } from "discord.js";
-import { composeContext } from "@ai16z/eliza";
-import {
-    Action,
-    ActionExample,
-    IAgentRuntime,
-    Memory,
-    State,
-} from "@ai16z/eliza";
+import { joinVoiceChannel } from "@discordjs/voice";
 
 export default {
     name: "JOIN_VOICE",
@@ -66,12 +69,7 @@ export default {
             return false;
         }
 
-        const client = state.discordClient as Client;
-
-        // Check if the client is connected to any voice channel
-        const isConnectedToVoice = client.voice.adapters.size === 0;
-
-        return isConnectedToVoice;
+        return true;
     },
     description: "Join a voice channel to participate in voice chat.",
     handler: async (
@@ -121,6 +119,9 @@ export default {
                 guildId: (discordMessage as DiscordMessage).guild?.id as string,
                 adapterCreator: (client.guilds.cache.get(id) as Guild)
                     .voiceAdapterCreator,
+                selfDeaf: false,
+                selfMute: false,
+                group: client.user.id,
             });
             return true;
         } else {
@@ -133,6 +134,9 @@ export default {
                         ?.id as string,
                     adapterCreator: (client.guilds.cache.get(id) as Guild)
                         .voiceAdapterCreator,
+                    selfDeaf: false,
+                    selfMute: false,
+                    group: client.user.id,
                 });
                 return true;
             }
@@ -161,7 +165,7 @@ You should only respond with the name of the voice channel or none, no commentar
                 state: guessState as unknown as State,
             });
 
-            const datestr = new Date().toUTCString().replace(/:/g, "-");
+            const _datestr = new Date().toUTCString().replace(/:/g, "-");
 
             const responseContent = await generateText({
                 runtime,
@@ -203,6 +207,9 @@ You should only respond with the name of the voice channel or none, no commentar
                             ?.id as string,
                         adapterCreator: (client.guilds.cache.get(id) as Guild)
                             .voiceAdapterCreator,
+                        selfDeaf: false,
+                        selfMute: false,
+                        group: client.user.id,
                     });
                     return true;
                 }

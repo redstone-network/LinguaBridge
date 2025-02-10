@@ -1,30 +1,41 @@
-import { Service } from "@ai16z/eliza";
 import {
     IAgentRuntime,
     ITranscriptionService,
+    IVideoService,
     Media,
+    Service,
     ServiceType,
-} from "@ai16z/eliza";
-import { stringToUuid } from "@ai16z/eliza";
+    stringToUuid,
+    elizaLogger,
+} from "@elizaos/core";
 import ffmpeg from "fluent-ffmpeg";
 import fs from "fs";
+import { tmpdir } from "os";
 import path from "path";
 import youtubeDl from "youtube-dl-exec";
-export class VideoService extends Service {
+
+export class VideoService extends Service implements IVideoService {
     static serviceType: ServiceType = ServiceType.VIDEO;
-    private CONTENT_CACHE_DIR = "./content_cache";
+    private cacheKey = "content/video";
+    private dataDir = "./content_cache";
 
     private queue: string[] = [];
     private processing: boolean = false;
 
     constructor() {
         super();
-        this.ensureCacheDirectoryExists();
+        this.ensureDataDirectoryExists();
     }
 
-    private ensureCacheDirectoryExists() {
-        if (!fs.existsSync(this.CONTENT_CACHE_DIR)) {
-            fs.mkdirSync(this.CONTENT_CACHE_DIR);
+    getInstance(): IVideoService {
+        return VideoService.getInstance();
+    }
+
+    async initialize(_runtime: IAgentRuntime): Promise<void> {}
+
+    private ensureDataDirectoryExists() {
+        if (!fs.existsSync(this.dataDir)) {
+            fs.mkdirSync(this.dataDir);
         }
     }
 
@@ -38,7 +49,7 @@ export class VideoService extends Service {
 
     public async downloadMedia(url: string): Promise<string> {
         const videoId = this.getVideoId(url);
-        const outputFile = path.join(this.CONTENT_CACHE_DIR, `${videoId}.mp4`);
+        const outputFile = path.join(this.dataDir, `${videoId}.mp4`);
 
         // if it already exists, return it
         if (fs.existsSync(outputFile)) {
@@ -53,14 +64,14 @@ export class VideoService extends Service {
             });
             return outputFile;
         } catch (error) {
-            console.error("Error downloading media:", error);
+            elizaLogger.log("Error downloading media:", error);
             throw new Error("Failed to download media");
         }
     }
 
     public async downloadVideo(videoInfo: any): Promise<string> {
         const videoId = this.getVideoId(videoInfo.webpage_url);
-        const outputFile = path.join(this.CONTENT_CACHE_DIR, `${videoId}.mp4`);
+        const outputFile = path.join(this.dataDir, `${videoId}.mp4`);
 
         // if it already exists, return it
         if (fs.existsSync(outputFile)) {
@@ -76,7 +87,7 @@ export class VideoService extends Service {
             });
             return outputFile;
         } catch (error) {
-            console.error("Error downloading video:", error);
+            elizaLogger.log("Error downloading video:", error);
             throw new Error("Failed to download video");
         }
     }
@@ -130,23 +141,22 @@ export class VideoService extends Service {
     ): Promise<Media> {
         const videoId =
             url.match(
-                /(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([^\/&?]+)/
+                /(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([^\/&?]+)/ // eslint-disable-line
             )?.[1] || "";
         const videoUuid = this.getVideoId(videoId);
-        const cacheFilePath = path.join(
-            this.CONTENT_CACHE_DIR,
-            `${videoUuid}.json`
-        );
+        const cacheKey = `${this.cacheKey}/${videoUuid}`;
 
-        if (fs.existsSync(cacheFilePath)) {
-            console.log("Returning cached video file");
-            return JSON.parse(fs.readFileSync(cacheFilePath, "utf-8")) as Media;
+        const cached = await runtime.cacheManager.get<Media>(cacheKey);
+
+        if (cached) {
+            elizaLogger.log("Returning cached video file");
+            return cached;
         }
 
-        console.log("Cache miss, processing video");
-        console.log("Fetching video info");
+        elizaLogger.log("Cache miss, processing video");
+        elizaLogger.log("Fetching video info");
         const videoInfo = await this.fetchVideoInfo(url);
-        console.log("Getting transcript");
+        elizaLogger.log("Getting transcript");
         const transcript = await this.getTranscript(url, videoInfo, runtime);
 
         const result: Media = {
@@ -158,7 +168,8 @@ export class VideoService extends Service {
             text: transcript,
         };
 
-        fs.writeFileSync(cacheFilePath, JSON.stringify(result));
+        await runtime.cacheManager.set(cacheKey, result);
+
         return result;
     }
 
@@ -179,7 +190,7 @@ export class VideoService extends Service {
                     };
                 }
             } catch (error) {
-                console.error("Error downloading MP4 file:", error);
+                elizaLogger.log("Error downloading MP4 file:", error);
                 // Fall back to using youtube-dl if direct download fails
             }
         }
@@ -199,7 +210,7 @@ export class VideoService extends Service {
             });
             return result;
         } catch (error) {
-            console.error("Error fetching video info:", error);
+            elizaLogger.log("Error fetching video info:", error);
             throw new Error("Failed to fetch video information");
         }
     }
@@ -209,11 +220,11 @@ export class VideoService extends Service {
         videoInfo: any,
         runtime: IAgentRuntime
     ): Promise<string> {
-        console.log("Getting transcript");
+        elizaLogger.log("Getting transcript");
         try {
             // Check for manual subtitles
             if (videoInfo.subtitles && videoInfo.subtitles.en) {
-                console.log("Manual subtitles found");
+                elizaLogger.log("Manual subtitles found");
                 const srtContent = await this.downloadSRT(
                     videoInfo.subtitles.en[0].url
                 );
@@ -225,7 +236,7 @@ export class VideoService extends Service {
                 videoInfo.automatic_captions &&
                 videoInfo.automatic_captions.en
             ) {
-                console.log("Automatic captions found");
+                elizaLogger.log("Automatic captions found");
                 const captionUrl = videoInfo.automatic_captions.en[0].url;
                 const captionContent = await this.downloadCaption(captionUrl);
                 return this.parseCaption(captionContent);
@@ -236,23 +247,23 @@ export class VideoService extends Service {
                 videoInfo.categories &&
                 videoInfo.categories.includes("Music")
             ) {
-                console.log("Music video detected, no lyrics available");
+                elizaLogger.log("Music video detected, no lyrics available");
                 return "No lyrics available.";
             }
 
             // Fall back to audio transcription
-            console.log(
-                "No captions found, falling back to audio transcription"
+            elizaLogger.log(
+                "No subtitles or captions found, falling back to audio transcription"
             );
             return this.transcribeAudio(url, runtime);
         } catch (error) {
-            console.error("Error in getTranscript:", error);
+            elizaLogger.log("Error in getTranscript:", error);
             throw error;
         }
     }
 
     private async downloadCaption(url: string): Promise<string> {
-        console.log("Downloading caption from:", url);
+        elizaLogger.log("Downloading caption from:", url);
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(
@@ -263,7 +274,7 @@ export class VideoService extends Service {
     }
 
     private parseCaption(captionContent: string): string {
-        console.log("Parsing caption");
+        elizaLogger.log("Parsing caption");
         try {
             const jsonContent = JSON.parse(captionContent);
             if (jsonContent.events) {
@@ -273,11 +284,11 @@ export class VideoService extends Service {
                     .join("")
                     .replace("\n", " ");
             } else {
-                console.error("Unexpected caption format:", jsonContent);
+                elizaLogger.log("Unexpected caption format:", jsonContent);
                 return "Error: Unable to parse captions";
             }
         } catch (error) {
-            console.error("Error parsing caption:", error);
+            elizaLogger.log("Error parsing caption:", error);
             return "Error: Unable to parse captions";
         }
     }
@@ -291,7 +302,7 @@ export class VideoService extends Service {
     }
 
     private async downloadSRT(url: string): Promise<string> {
-        console.log("downloadSRT");
+        elizaLogger.log("downloadSRT");
         const response = await fetch(url);
         return await response.text();
     }
@@ -300,39 +311,47 @@ export class VideoService extends Service {
         url: string,
         runtime: IAgentRuntime
     ): Promise<string> {
-        console.log("Preparing audio for transcription...");
+        elizaLogger.log("Preparing audio for transcription...");
         const mp4FilePath = path.join(
-            this.CONTENT_CACHE_DIR,
+            this.dataDir,
             `${this.getVideoId(url)}.mp4`
         );
+
         const mp3FilePath = path.join(
-            this.CONTENT_CACHE_DIR,
+            this.dataDir,
             `${this.getVideoId(url)}.mp3`
         );
 
         if (!fs.existsSync(mp3FilePath)) {
             if (fs.existsSync(mp4FilePath)) {
-                console.log("MP4 file found. Converting to MP3...");
+                elizaLogger.log("MP4 file found. Converting to MP3...");
                 await this.convertMp4ToMp3(mp4FilePath, mp3FilePath);
             } else {
-                console.log("Downloading audio...");
+                elizaLogger.log("Downloading audio...");
                 await this.downloadAudio(url, mp3FilePath);
             }
         }
 
-        console.log(`Audio prepared at ${mp3FilePath}`);
+        elizaLogger.log(`Audio prepared at ${mp3FilePath}`);
 
         const audioBuffer = fs.readFileSync(mp3FilePath);
-        console.log(`Audio file size: ${audioBuffer.length} bytes`);
+        elizaLogger.log(`Audio file size: ${audioBuffer.length} bytes`);
 
-        console.log("Starting transcription...");
+        elizaLogger.log("Starting transcription...");
         const startTime = Date.now();
-        const transcript = await runtime
-            .getService(ServiceType.TRANSCRIPTION)
-            .getInstance<ITranscriptionService>()
-            .transcribe(audioBuffer);
+        const transcriptionService = runtime.getService<ITranscriptionService>(
+            ServiceType.TRANSCRIPTION
+        );
+
+        if (!transcriptionService) {
+            throw new Error("Transcription service not found");
+        }
+
+        const uintBuffer = new Uint8Array(audioBuffer).buffer;
+        const transcript = await transcriptionService.transcribe(uintBuffer);
+
         const endTime = Date.now();
-        console.log(
+        elizaLogger.log(
             `Transcription completed in ${(endTime - startTime) / 1000} seconds`
         );
 
@@ -350,11 +369,11 @@ export class VideoService extends Service {
                 .noVideo()
                 .audioCodec("libmp3lame")
                 .on("end", () => {
-                    console.log("Conversion to MP3 complete");
+                    elizaLogger.log("Conversion to MP3 complete");
                     resolve();
                 })
                 .on("error", (err) => {
-                    console.error("Error converting to MP3:", err);
+                    elizaLogger.log("Error converting to MP3:", err);
                     reject(err);
                 })
                 .run();
@@ -365,18 +384,18 @@ export class VideoService extends Service {
         url: string,
         outputFile: string
     ): Promise<string> {
-        console.log("Downloading audio");
+        elizaLogger.log("Downloading audio");
         outputFile =
             outputFile ??
-            path.join(this.CONTENT_CACHE_DIR, `${this.getVideoId(url)}.mp3`);
+            path.join(this.dataDir, `${this.getVideoId(url)}.mp3`);
 
         try {
             if (url.endsWith(".mp4") || url.includes(".mp4?")) {
-                console.log(
+                elizaLogger.log(
                     "Direct MP4 file detected, downloading and converting to MP3"
                 );
                 const tempMp4File = path.join(
-                    this.CONTENT_CACHE_DIR,
+                    tmpdir(),
                     `${this.getVideoId(url)}.mp4`
                 );
                 const response = await fetch(url);
@@ -399,7 +418,7 @@ export class VideoService extends Service {
                         .run();
                 });
             } else {
-                console.log(
+                elizaLogger.log(
                     "YouTube video detected, downloading audio with youtube-dl"
                 );
                 await youtubeDl(url, {
@@ -412,7 +431,7 @@ export class VideoService extends Service {
             }
             return outputFile;
         } catch (error) {
-            console.error("Error downloading audio:", error);
+            elizaLogger.log("Error downloading audio:", error);
             throw new Error("Failed to download audio");
         }
     }

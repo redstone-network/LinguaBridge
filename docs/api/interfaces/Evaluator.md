@@ -1,8 +1,8 @@
-[@ai16z/eliza v1.0.0](../index.md) / Evaluator
+[@elizaos/core v0.1.7](../index.md) / Evaluator
 
 # Interface: Evaluator
 
-Represents an evaluator, which is used to assess and guide the agent's responses based on the current context and state.
+Evaluator for assessing agent responses
 
 ## Properties
 
@@ -10,9 +10,11 @@ Represents an evaluator, which is used to assess and guide the agent's responses
 
 > `optional` **alwaysRun**: `boolean`
 
+Whether to always run
+
 #### Defined in
 
-[packages/core/src/types.ts:238](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L238)
+[packages/core/src/types.ts:449](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L449)
 
 ---
 
@@ -20,9 +22,11 @@ Represents an evaluator, which is used to assess and guide the agent's responses
 
 > **description**: `string`
 
+Detailed description
+
 #### Defined in
 
-[packages/core/src/types.ts:239](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L239)
+[packages/core/src/types.ts:452](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L452)
 
 ---
 
@@ -30,9 +34,11 @@ Represents an evaluator, which is used to assess and guide the agent's responses
 
 > **similes**: `string`[]
 
+Similar evaluator descriptions
+
 #### Defined in
 
-[packages/core/src/types.ts:240](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L240)
+[packages/core/src/types.ts:455](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L455)
 
 ---
 
@@ -40,9 +46,11 @@ Represents an evaluator, which is used to assess and guide the agent's responses
 
 > **examples**: [`EvaluationExample`](EvaluationExample.md)[]
 
+Example evaluations
+
 #### Defined in
 
-[packages/core/src/types.ts:241](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L241)
+[packages/core/src/types.ts:458](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L458)
 
 ---
 
@@ -50,9 +58,11 @@ Represents an evaluator, which is used to assess and guide the agent's responses
 
 > **handler**: [`Handler`](../type-aliases/Handler.md)
 
+Handler function
+
 #### Defined in
 
-[packages/core/src/types.ts:242](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L242)
+[packages/core/src/types.ts:461](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L461)
 
 ---
 
@@ -60,9 +70,11 @@ Represents an evaluator, which is used to assess and guide the agent's responses
 
 > **name**: `string`
 
+Evaluator name
+
 #### Defined in
 
-[packages/core/src/types.ts:243](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L243)
+[packages/core/src/types.ts:464](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L464)
 
 ---
 
@@ -70,6 +82,8 @@ Represents an evaluator, which is used to assess and guide the agent's responses
 
 > **validate**: [`Validator`](../type-aliases/Validator.md)
 
+Validation function
+
 #### Defined in
 
-[packages/core/src/types.ts:244](https://github.com/ai16z/eliza/blob/main/packages/core/src/types.ts#L244)
+[packages/core/src/types.ts:467](https://github.com/elizaOS/eliza/blob/main/packages/core/src/types.ts#L467)
