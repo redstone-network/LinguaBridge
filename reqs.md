@@ -3,11 +3,16 @@
 版本：MVP 1.0
 时间：2025年3月29日
 
+## 要解决的问题
+
+- 小语种翻译成本高
+- 行业领域的翻译成本太高，没有背景知识翻译效果不好
+
 ## 零 概述
 
 LinguaBridge是一款结合ElizaOS多智能体框架和0g区块链协议的专业翻译工具，为全球商务人士提供实时翻译、专业文档解读和跨文化交流支持，通过区块链技术确保翻译内容的所有权和价值激励。
 
-基于大模型实现翻译功能，结合evm智能合约，上传语料有token激励，语料会被多人审核。审核通过的语料，用语料微调大模型。可以上传翻译语料, 行业领域知识，还要上传风俗习惯知识，让翻译更接地气。使用RAG技术增强翻译效果。
+基于大模型实现翻译功能，结合evm智能合约，上传语料有token激励，语料会被多人审核。AI agent审核通过的语料，用于微调大模型和RAG翻译增强。可以上传翻译语料, 行业领域知识，还要上传风俗习惯知识，让翻译更接地气。
 
 ## 一、系统架构设计
 
@@ -126,21 +131,20 @@ function verifyAuditorZK(bytes memory proof) external view returns (bool) {
 
 ### 2. RAG增强流程
 
-sequenceDiagram
-
 ```mermaid
-participant User
-participant ElizaOS
-participant Folder合约
-participant RAG引擎
+sequenceDiagram
+    participant User
+    participant ElizaOS
+    participant Folder合约
+    participant RAG引擎
 
-User->>ElizaOS: 提交翻译请求
-ElizaOS->>Folder合约: 查询最新文件列表
-Folder合约-->>ElizaOS: 返回新增文件哈希
-ElizaOS->>0G存储层: 下载文件内容
-ElizaOS->>RAG引擎: 更新FAISS向量库
-RAG引擎->>DeepSeek: 注入行业上下文
-DeepSeek-->>User: 返回增强翻译结果
+    User->>ElizaOS: 提交翻译请求
+    ElizaOS->>Folder合约: 查询最新文件列表
+    Folder合约-->>ElizaOS: 返回新增文件哈希
+    ElizaOS->>0G存储层: 下载文件内容
+    ElizaOS->>RAG引擎: 更新FAISS向量库
+    RAG引擎->>DeepSeek: 注入行业上下文
+    DeepSeek-->>User: 返回增强翻译结果
 ```
 
 ## 四、关键创新点
