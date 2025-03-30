@@ -133,18 +133,18 @@ function verifyAuditorZK(bytes memory proof) external view returns (bool) {
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant ElizaOS
-    participant Folder合约
-    participant RAG引擎
+participant User
+participant ElizaOS
+participant Folder合约
+participant RAG引擎
 
-    User->>ElizaOS: 提交翻译请求
-    ElizaOS->>Folder合约: 查询最新文件列表
-    Folder合约-->>ElizaOS: 返回新增文件哈希
-    ElizaOS->>0G存储层: 下载文件内容
-    ElizaOS->>RAG引擎: 更新FAISS向量库
-    RAG引擎->>DeepSeek: 注入行业上下文
-    DeepSeek-->>User: 返回增强翻译结果
+User->>ElizaOS: 提交翻译请求
+ElizaOS->>Folder合约: 查询最新文件列表
+Folder合约-->>ElizaOS: 返回新增文件哈希
+ElizaOS->>0G存储层: 下载文件内容
+ElizaOS->>RAG引擎: 更新FAISS向量库
+RAG引擎->>DeepSeek: 注入行业上下文
+DeepSeek-->>User: 返回增强翻译结果
 ```
 
 ## 四、关键创新点
