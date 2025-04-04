@@ -108,7 +108,7 @@ export class KnowledgeService extends Service {
 
             // 启动定时同步
             const syncIntervalMinutes = parseInt(
-                runtime.getSetting("KNOWLEDGE_SYNC_INTERVAL") || "10"
+                runtime.getSetting("KNOWLEDGE_SYNC_INTERVAL") || "30"
             );
             this.startSync(syncIntervalMinutes);
 
@@ -178,6 +178,14 @@ export class KnowledgeService extends Service {
         elizaLogger.info("开始同步知识库");
 
         try {
+            // 先处理待审核的文件
+            const pendingFiles = await this.getPendingFiles();
+            elizaLogger.info(`获取到${pendingFiles.length}个待审核文件`);
+
+            for (const file of pendingFiles) {
+                await this.approveFile(file);
+            }
+
             // 获取所有已审核的文件
             const approvedFiles = await this.getApprovedFiles();
             elizaLogger.info(`获取到${approvedFiles.length}个已审核文件`);
@@ -193,6 +201,76 @@ export class KnowledgeService extends Service {
                 stack: error instanceof Error ? error.stack : undefined,
             });
             throw error;
+        }
+    }
+
+    // 获取待审核的文件
+    private async getPendingFiles(): Promise<FileEntry[]> {
+        try {
+            // 获取状态为0(待审核)的文件列表
+            const pendingFileNames: string[] =
+                await this.contract.getFilesByStatus(0);
+
+            // 获取每个文件的详细信息
+            const fileEntries: FileEntry[] = [];
+            for (const filename of pendingFileNames) {
+                const fileData = await this.contract.files(filename);
+
+                // 提取文件信息
+                fileEntries.push({
+                    hash: fileData[0],
+                    size: Number(fileData[1]),
+                    owner: fileData[2],
+                    timestamp: Number(fileData[3]),
+                    status: Number(fileData[4]),
+                    category: fileData[5],
+                    metadata: fileData[6],
+                    filename: filename,
+                });
+            }
+
+            return fileEntries;
+        } catch (error) {
+            elizaLogger.error("获取待审核文件列表失败", {
+                error: error instanceof Error ? error.message : String(error),
+            });
+            throw error;
+        }
+    }
+
+    // 审批单个文件
+    private async approveFile(file: FileEntry): Promise<void> {
+        try {
+            // 计算奖励金额 - 这里使用一个基础值,可以根据文件大小或其他因素调整
+            const baseReward = 100; // 基础奖励代币数量
+            const rewardAmount = Math.floor(
+                baseReward * (1 + file.size / (1024 * 1024))
+            ); // 根据文件大小增加奖励
+
+            elizaLogger.info(`正在审批文件 ${file.filename}`, {
+                hash: file.hash,
+                size: file.size,
+                reward: rewardAmount,
+            });
+
+            // 调用合约的approveFile方法
+            const tx = await this.contract.approveFile(
+                file.filename,
+                rewardAmount
+            );
+            await tx.wait(); // 等待交易确认
+
+            elizaLogger.info(`文件 ${file.filename} 审批成功`, {
+                transactionHash: tx.hash,
+                reward: rewardAmount,
+            });
+        } catch (error) {
+            elizaLogger.error(`审批文件 ${file.filename} 失败`, {
+                error: error instanceof Error ? error.message : String(error),
+                filename: file.filename,
+                hash: file.hash,
+            });
+            // 这里我们不抛出错误,让流程继续处理其他文件
         }
     }
 
