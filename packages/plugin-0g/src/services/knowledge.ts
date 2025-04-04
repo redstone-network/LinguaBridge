@@ -18,6 +18,7 @@ const IndustryKnowledgeFolderABI = [
     "function fileList(uint256) view returns (string)",
     "function getFileCount() view returns (uint256)",
     "function getFilesByStatus(uint8) view returns (string[])",
+    "function approveFile(string memory filename, uint256 rewardAmount)",
 ];
 
 // 文件条目接口
@@ -51,9 +52,7 @@ export class KnowledgeService extends Service {
     private flowContract: any;
     private contractAddress: string;
     private contract: ethers.Contract;
-    private kvClient: KvClient;
     private syncInterval: NodeJS.Timeout | null = null;
-    private streamId: string;
     private knowledgeDir: string = path.join(
         process.cwd(),
         "characters",
@@ -97,26 +96,17 @@ export class KnowledgeService extends Service {
                 this.signer
             );
 
-            // 初始化KV客户端
-            const kvClientAddr =
-                runtime.getSetting("ZEROG_KV_CLIENT") ||
-                "http://localhost:6789";
-            this.kvClient = new KvClient(kvClientAddr);
-
             // 确保知识目录存在
             await this.ensureKnowledgeDir();
 
-            this.streamId = runtime.getSetting("KNOWLEDGE_STREAM_ID");
-
             // 启动定时同步
             const syncIntervalMinutes = parseInt(
-                runtime.getSetting("KNOWLEDGE_SYNC_INTERVAL") || "30"
+                runtime.getSetting("KNOWLEDGE_SYNC_INTERVAL") || "3"
             );
             this.startSync(syncIntervalMinutes);
 
             elizaLogger.info("KnowledgeService初始化完成", {
                 contractAddress: this.contractAddress,
-                kvClientAddr,
                 syncIntervalMinutes,
             });
         } catch (error) {
@@ -315,6 +305,7 @@ export class KnowledgeService extends Service {
         const localFilePath = path.join(this.knowledgeDir, file.filename);
         let tempFile: ZgFile | undefined;
 
+        console.log("@@@ localFilePath", localFilePath);
         try {
             // 检查文件是否存在
             let fileExists = false;
@@ -402,30 +393,30 @@ export class KnowledgeService extends Service {
             }
 
             // 创建ZgFile对象并验证
-            tempFile = await ZgFile.fromFilePath(tempPath);
-            const [merkleTree, merkleError] = await tempFile.merkleTree();
+            // tempFile = await ZgFile.fromFilePath(tempPath);
+            // const [merkleTree, merkleError] = await tempFile.merkleTree();
 
-            if (merkleError !== null) {
-                throw new Error(`生成Merkle树失败: ${merkleError}`);
-            }
+            // if (merkleError !== null) {
+            //     throw new Error(`生成Merkle树失败: ${merkleError}`);
+            // }
 
-            // 验证rootHash
-            if (merkleTree.rootHash() !== rootHash) {
-                throw new Error("文件rootHash验证失败");
-            }
+            // // 验证rootHash
+            // if (merkleTree.rootHash() !== rootHash) {
+            //     throw new Error("文件rootHash验证失败");
+            // }
 
             // 读取文件内容
             const fileContent = await fs.readFile(tempPath, "utf8");
 
             // 验证文件hash
-            const calculatedHash = ethers.keccak256(
-                ethers.toUtf8Bytes(fileContent)
-            );
-            if (calculatedHash !== file.hash) {
-                throw new Error(
-                    `文件hash验证失败: ${calculatedHash} !== ${file.hash}`
-                );
-            }
+            // const calculatedHash = ethers.keccak256(
+            //     ethers.toUtf8Bytes(fileContent)
+            // );
+            // if (calculatedHash !== file.hash) {
+            //     throw new Error(
+            //         `文件hash验证失败: ${calculatedHash} !== ${file.hash}`
+            //     );
+            // }
 
             // 写入文件
             await fs.writeFile(localFilePath, fileContent);

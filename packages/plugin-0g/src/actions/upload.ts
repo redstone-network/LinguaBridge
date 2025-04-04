@@ -508,7 +508,7 @@ export const zgUpload: Action = {
                         description: "industry_fields_description",
                         format: path.extname(sanitizedPath).slice(1), // 去掉.获取扩展名
                         lastUpdated: new Date().toISOString(),
-                        rootHash: rootHash,
+                        rootHash: merkleTree.rootHash(),
                     };
 
                     // 获取合约地址
