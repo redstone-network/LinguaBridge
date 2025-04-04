@@ -69,6 +69,7 @@ export default function Page({ agentId }: { agentId: UUID }) {
         e.preventDefault();
         if (!input) return;
 
+        console.log("@@@ ZG_UPLOAD selectedFile", selectedFile);
         const attachments: IAttachment[] | undefined = selectedFile
             ? [
                   {
@@ -147,7 +148,10 @@ export default function Page({ agentId }: { agentId: UUID }) {
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file && file.type.startsWith("image/")) {
+        if (
+            file &&
+            (file.type.startsWith("image/") || file.type.startsWith("text/"))
+        ) {
             setSelectedFile(file);
         }
     };
@@ -324,7 +328,7 @@ export default function Page({ agentId }: { agentId: UUID }) {
                                         type="file"
                                         ref={fileInputRef}
                                         onChange={handleFileChange}
-                                        accept="image/*"
+                                        accept="image/*, text/markdown, text/plain"
                                         className="hidden"
                                     />
                                 </div>
