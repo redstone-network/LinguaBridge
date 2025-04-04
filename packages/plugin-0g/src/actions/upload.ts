@@ -37,6 +37,11 @@ function isUploadContent(
     return typeof content.filePath === "string";
 }
 
+// 添加IndustryKnowledgeFolder合约ABI
+const IndustryKnowledgeFolderABI = [
+    "function uploadFile(string memory filename, bytes32 hash, uint256 size, string memory category, string memory metadata) external",
+];
+
 export const zgUpload: Action = {
     name: "ZG_UPLOAD",
     similes: [
@@ -91,14 +96,7 @@ export const zgUpload: Action = {
                 ),
                 allowedExtensions: runtime
                     .getSetting("ZEROG_ALLOWED_EXTENSIONS")
-                    ?.split(",") || [
-                    ".pdf",
-                    ".png",
-                    ".jpg",
-                    ".jpeg",
-                    ".doc",
-                    ".docx",
-                ],
+                    ?.split(",") || [".txt", ".md"],
                 uploadDirectory:
                     runtime.getSetting("ZEROG_UPLOAD_DIR") ||
                     "/tmp/zerog-uploads",
@@ -235,16 +233,7 @@ export const zgUpload: Action = {
                 ),
                 allowedExtensions: runtime
                     .getSetting("ZEROG_ALLOWED_EXTENSIONS")
-                    ?.split(",") || [
-                    ".pdf",
-                    ".png",
-                    ".jpg",
-                    ".jpeg",
-                    ".doc",
-                    ".docx",
-                    ".txt",
-                    ".md",
-                ],
+                    ?.split(",") || [".txt", ".md"],
                 uploadDirectory:
                     runtime.getSetting("ZEROG_UPLOAD_DIR") ||
                     "/tmp/zerog-uploads",
@@ -462,69 +451,22 @@ export const zgUpload: Action = {
                     signer
                 );
 
-                // 改用key/value方式存储文件
-                elizaLogger.info("开始使用key/value方式上传文件", {
+                console.log("@@@ ZG_UPLOAD Starting file upload to ZeroG.");
+                // Upload file to ZeroG
+                elizaLogger.info("Starting file upload to ZeroG", {
                     filePath: sanitizedPath,
                     messageId: message.id,
                 });
 
-                // 获取文件名并转换为base64作为key
-                const fileName = path.basename(sanitizedPath);
-                const keyBase64 = Buffer.from(fileName).toString("base64");
-                elizaLogger.debug("文件名base64编码", {
-                    fileName,
-                    keyBase64,
-                    messageId: message.id,
-                });
-
-                console.log(
-                    "@@@ ZG_UPLOAD Generate Merkle tree",
-                    "文件名base64编码",
-                    {
-                        fileName,
-                        keyBase64,
-                        messageId: message.id,
-                    }
+                const [txHash, uploadError] = await indexer.upload(
+                    file,
+                    runtime.getSetting("ZEROG_EVM_RPC"),
+                    signer
+                    //flowContract
                 );
 
-                // 读取文件内容作为value
-                const fileContent = await fs.readFile(sanitizedPath);
-
-                // 选择节点
-                const [nodes, nodesErr] = await indexer.selectNodes(1);
-                if (nodesErr !== null) {
-                    const error = `Error selecting nodes: ${nodesErr instanceof Error ? nodesErr.message : String(nodesErr)}`;
-                    elizaLogger.error(error, { messageId: message.id });
-                    if (callback) {
-                        callback({
-                            text: "上传失败：无法选择节点。",
-                            content: { error },
-                        });
-                    }
-                    return false;
-                }
-
-                // 创建Batcher并设置key/value
-                const batcher = new Batcher(
-                    1,
-                    nodes,
-                    flowContract,
-                    runtime.getSetting("ZEROG_EVM_RPC")
-                );
-
-                const key = Uint8Array.from(Buffer.from(keyBase64, "utf-8"));
-                const value = Uint8Array.from(fileContent);
-
-                // 使用文件的root哈希作为streamId
-                const streamId = runtime.getSetting("KNOWLEDGE_STREAM_ID");
-
-                batcher.streamDataBuilder.set(streamId, key, value);
-
-                // 执行批处理上传
-                const [tx, batchErr] = await batcher.exec();
-
-                if (batchErr !== null) {
-                    const error = `Error executing batcher: ${batchErr instanceof Error ? batchErr.message : String(batchErr)}`;
+                if (uploadError !== null) {
+                    const error = `Error uploading file: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`;
                     elizaLogger.error(error, { messageId: message.id });
                     monitorUpload({
                         filePath: sanitizedPath,
@@ -535,14 +477,96 @@ export const zgUpload: Action = {
                     });
                     if (callback) {
                         callback({
-                            text: "上传失败：批处理执行错误。",
+                            text: "Upload failed: Error during file upload.",
                             content: { error },
                         });
                     }
                     return false;
                 }
 
-                // 记录成功上传
+                // 上传文件到IndustryKnowledgeFolder合约
+                try {
+                    elizaLogger.info("开始上传文件到知识库合约", {
+                        filename: path.basename(sanitizedPath),
+                        messageId: message.id,
+                    });
+
+                    // 读取文件内容
+                    const fileContent = await fs.readFile(
+                        sanitizedPath,
+                        "utf8"
+                    );
+
+                    // 计算文件哈希和大小
+                    const fileHash = ethers.keccak256(
+                        ethers.toUtf8Bytes(fileContent)
+                    );
+                    const fileSize = Buffer.from(fileContent).length;
+
+                    // 构造metadata
+                    const metadata = {
+                        description: "industry_fields_description",
+                        format: path.extname(sanitizedPath).slice(1), // 去掉.获取扩展名
+                        lastUpdated: new Date().toISOString(),
+                        rootHash: rootHash,
+                    };
+
+                    // 获取合约地址
+                    const contractAddress = runtime.getSetting(
+                        "INDUSTRY_KNOWLEDGE_CONTRACT"
+                    );
+                    if (!contractAddress) {
+                        throw new Error(
+                            "未配置INDUSTRY_KNOWLEDGE_CONTRACT地址"
+                        );
+                    }
+
+                    // 创建合约实例
+                    const contract = new ethers.Contract(
+                        contractAddress,
+                        IndustryKnowledgeFolderABI,
+                        signer
+                    );
+
+                    // 调用合约的uploadFile方法
+                    const filename = path.basename(sanitizedPath);
+                    const tx = await contract.uploadFile(
+                        filename,
+                        fileHash,
+                        fileSize,
+                        "industry_fields",
+                        JSON.stringify(metadata)
+                    );
+
+                    // 等待交易确认
+                    await tx.wait();
+
+                    console.log("文件已成功上传到知识库合约", {
+                        filename,
+                        fileHash,
+                        fileSize,
+                        transactionHash: tx.hash,
+                        messageId: message.id,
+                    });
+                    elizaLogger.info("文件已成功上传到知识库合约", {
+                        filename,
+                        fileHash,
+                        fileSize,
+                        transactionHash: tx.hash,
+                        messageId: message.id,
+                    });
+                } catch (error) {
+                    const errorMessage = `Error uploading to knowledge contract: ${error instanceof Error ? error.message : String(error)}`;
+                    elizaLogger.error(errorMessage, {
+                        messageId: message.id,
+                        stack: error instanceof Error ? error.stack : undefined,
+                    });
+                    // 注意:这里我们不返回false,因为文件已经成功上传到0g
+                    // 只在日志中记录合约上传失败
+                }
+
+                console.log("@@@ ZG_UPLOAD monitorUpload.");
+                // Log successful upload
                 monitorUpload({
                     filePath: sanitizedPath,
                     size: fileStats.size,
@@ -550,11 +574,8 @@ export const zgUpload: Action = {
                     success: true,
                 });
 
-                elizaLogger.info("文件成功上传为key/value格式", {
-                    fileName,
-                    keyBase64,
-                    streamId,
-                    transactionHash: tx,
+                elizaLogger.info("File uploaded successfully", {
+                    transactionHash: txHash,
                     filePath: sanitizedPath,
                     fileSize: fileStats.size,
                     duration: Date.now() - startTime,
@@ -563,18 +584,17 @@ export const zgUpload: Action = {
 
                 if (callback) {
                     callback({
-                        text: "文件已成功上传到ZeroG, 使用key/value格式存储。",
+                        text: "File uploaded successfully to ZeroG.",
                         content: {
                             success: true,
-                            fileName: fileName,
-                            keyBase64: keyBase64,
-                            streamId: streamId,
-                            transactionHash: tx,
+                            transactionHash: null,
                         },
                     });
                 }
 
-                console.log("@@@ ZG_UPLOAD 文件已成功上传为key/value格式");
+                console.log(
+                    "@@@ ZG_UPLOAD  File uploaded successfully to ZeroG."
+                );
 
                 return true;
             } finally {

@@ -9,6 +9,8 @@ import { ethers } from "ethers";
 import { promises as fs } from "fs";
 import path from "path";
 import * as crypto from "crypto";
+import os from "os";
+import { ZgFile } from "@0glabs/0g-ts-sdk";
 
 // IndustryKnowledgeFolder合约ABI
 const IndustryKnowledgeFolderABI = [
@@ -311,6 +313,7 @@ export class KnowledgeService extends Service {
     // 处理单个文件
     private async processFile(file: FileEntry): Promise<void> {
         const localFilePath = path.join(this.knowledgeDir, file.filename);
+        let tempFile: ZgFile | undefined;
 
         try {
             // 检查文件是否存在
@@ -360,32 +363,68 @@ export class KnowledgeService extends Service {
                 }
             }
 
-            // 从0g获取文件内容
-            elizaLogger.info(`正在从0g获取文件 ${file.filename}`);
-
-            // 文件名base64编码作为key
-            const keyBase64 = Buffer.from(file.filename).toString("base64");
-            const key = Uint8Array.from(Buffer.from(keyBase64, "utf-8"));
-            // 从0g获取文件
-            const value = await this.kvClient.getValue(this.streamId, key);
-            if (!value) {
-                elizaLogger.error(`无法从0g获取文件 ${file.filename}`);
+            // 从metadata中获取rootHash
+            let rootHash: string;
+            try {
+                const metadataObj = JSON.parse(file.metadata);
+                if (!metadataObj.rootHash) {
+                    throw new Error("metadata中未找到rootHash");
+                }
+                rootHash = metadataObj.rootHash;
+            } catch (error) {
+                elizaLogger.error(`解析文件 ${file.filename} 的metadata失败`, {
+                    metadata: file.metadata,
+                    error:
+                        error instanceof Error ? error.message : String(error),
+                });
                 return;
             }
 
-            // 解码文件内容
-            const fileContent = Buffer.from(value, "base64");
+            // 创建临时下载目录
+            const tempDir = path.join(os.tmpdir(), "zerog-downloads");
+            await fs.mkdir(tempDir, { recursive: true });
+            const tempPath = path.join(tempDir, `${file.filename}.temp`);
+
+            elizaLogger.info(`正在从0g下载文件 ${file.filename}`, {
+                rootHash,
+                tempPath,
+            });
+
+            // 下载文件
+            const downloadError = await this.indexer.download(
+                rootHash,
+                tempPath,
+                true // 启用Merkle证明验证
+            );
+
+            if (downloadError !== null) {
+                throw new Error(`下载文件失败: ${downloadError}`);
+            }
+
+            // 创建ZgFile对象并验证
+            tempFile = await ZgFile.fromFilePath(tempPath);
+            const [merkleTree, merkleError] = await tempFile.merkleTree();
+
+            if (merkleError !== null) {
+                throw new Error(`生成Merkle树失败: ${merkleError}`);
+            }
+
+            // 验证rootHash
+            if (merkleTree.rootHash() !== rootHash) {
+                throw new Error("文件rootHash验证失败");
+            }
+
+            // 读取文件内容
+            const fileContent = await fs.readFile(tempPath, "utf8");
 
             // 验证文件hash
             const calculatedHash = ethers.keccak256(
-                ethers.toUtf8Bytes(fileContent.toString("utf8"))
+                ethers.toUtf8Bytes(fileContent)
             );
             if (calculatedHash !== file.hash) {
-                elizaLogger.error(`文件 ${file.filename} 哈希验证失败`, {
-                    expected: file.hash,
-                    actual: calculatedHash,
-                });
-                return;
+                throw new Error(
+                    `文件hash验证失败: ${calculatedHash} !== ${file.hash}`
+                );
             }
 
             // 写入文件
@@ -409,12 +448,24 @@ export class KnowledgeService extends Service {
             elizaLogger.info(`文件 ${file.filename} 已成功保存`, {
                 path: localFilePath,
                 size: fileContent.length,
+                rootHash,
             });
         } catch (error) {
             elizaLogger.error(`处理文件 ${file.filename} 失败`, {
                 error: error instanceof Error ? error.message : String(error),
                 path: localFilePath,
             });
+        } finally {
+            // 清理临时文件
+            if (tempFile) {
+                try {
+                    await tempFile.close();
+                } catch (error) {
+                    elizaLogger.warn(
+                        `关闭临时文件失败: ${error instanceof Error ? error.message : String(error)}`
+                    );
+                }
+            }
         }
     }
 
