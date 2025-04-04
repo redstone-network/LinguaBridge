@@ -462,22 +462,69 @@ export const zgUpload: Action = {
                     signer
                 );
 
-                console.log("@@@ ZG_UPLOAD Starting file upload to ZeroG.");
-                // Upload file to ZeroG
-                elizaLogger.info("Starting file upload to ZeroG", {
+                // 改用key/value方式存储文件
+                elizaLogger.info("开始使用key/value方式上传文件", {
                     filePath: sanitizedPath,
                     messageId: message.id,
                 });
 
-                const [txHash, uploadError] = await indexer.upload(
-                    file,
-                    runtime.getSetting("ZEROG_EVM_RPC"),
-                    signer
-                    //flowContract
+                // 获取文件名并转换为base64作为key
+                const fileName = path.basename(sanitizedPath);
+                const keyBase64 = Buffer.from(fileName).toString("base64");
+                elizaLogger.debug("文件名base64编码", {
+                    fileName,
+                    keyBase64,
+                    messageId: message.id,
+                });
+
+                console.log(
+                    "@@@ ZG_UPLOAD Generate Merkle tree",
+                    "文件名base64编码",
+                    {
+                        fileName,
+                        keyBase64,
+                        messageId: message.id,
+                    }
                 );
 
-                if (uploadError !== null) {
-                    const error = `Error uploading file: ${uploadError instanceof Error ? uploadError.message : String(uploadError)}`;
+                // 读取文件内容作为value
+                const fileContent = await fs.readFile(sanitizedPath);
+
+                // 选择节点
+                const [nodes, nodesErr] = await indexer.selectNodes(1);
+                if (nodesErr !== null) {
+                    const error = `Error selecting nodes: ${nodesErr instanceof Error ? nodesErr.message : String(nodesErr)}`;
+                    elizaLogger.error(error, { messageId: message.id });
+                    if (callback) {
+                        callback({
+                            text: "上传失败：无法选择节点。",
+                            content: { error },
+                        });
+                    }
+                    return false;
+                }
+
+                // 创建Batcher并设置key/value
+                const batcher = new Batcher(
+                    1,
+                    nodes,
+                    flowContract,
+                    runtime.getSetting("ZEROG_EVM_RPC")
+                );
+
+                const key = Uint8Array.from(Buffer.from(keyBase64, "utf-8"));
+                const value = Uint8Array.from(fileContent);
+
+                // 使用文件的root哈希作为streamId
+                const streamId = merkleTree.rootHash();
+
+                batcher.streamDataBuilder.set(streamId, key, value);
+
+                // 执行批处理上传
+                const [tx, batchErr] = await batcher.exec();
+
+                if (batchErr !== null) {
+                    const error = `Error executing batcher: ${batchErr instanceof Error ? batchErr.message : String(batchErr)}`;
                     elizaLogger.error(error, { messageId: message.id });
                     monitorUpload({
                         filePath: sanitizedPath,
@@ -488,15 +535,14 @@ export const zgUpload: Action = {
                     });
                     if (callback) {
                         callback({
-                            text: "Upload failed: Error during file upload.",
+                            text: "上传失败：批处理执行错误。",
                             content: { error },
                         });
                     }
                     return false;
                 }
 
-                console.log("@@@ ZG_UPLOAD monitorUpload.");
-                // Log successful upload
+                // 记录成功上传
                 monitorUpload({
                     filePath: sanitizedPath,
                     size: fileStats.size,
@@ -504,53 +550,31 @@ export const zgUpload: Action = {
                     success: true,
                 });
 
-                elizaLogger.info("File uploaded successfully", {
-                    transactionHash: txHash,
+                elizaLogger.info("文件成功上传为key/value格式", {
+                    fileName,
+                    keyBase64,
+                    streamId,
+                    transactionHash: tx,
                     filePath: sanitizedPath,
                     fileSize: fileStats.size,
                     duration: Date.now() - startTime,
                     messageId: message.id,
                 });
 
-                // const [nodes, err] = await indexer.selectNodes(1);
-                // if (err !== null) {
-                //     console.log("Error selecting nodes: ", err);
-                //     return;
-                // }
-
-                // const batcher = new Batcher(
-                //     1,
-                //     nodes,
-                //     flowContract,
-                //     runtime.getSetting("ZEROG_EVM_RPC")
-                // );
-
-                // const key1 = Uint8Array.from(Buffer.from("TESTKEY0", "utf-8"));
-                // const val1 = Uint8Array.from(
-                //     Buffer.from("TESTVALUE0", "utf-8")
-                // );
-                // batcher.streamDataBuilder.set("0x...", key1, val1);
-
-                // const [tx, batchErr] = await batcher.exec();
-                // if (batchErr === null) {
-                //     console.log("Batcher executed successfully, tx: ", tx);
-                // } else {
-                //     console.log("Error executing batcher: ", batchErr);
-                // }
-
                 if (callback) {
                     callback({
-                        text: "File uploaded successfully to ZeroG.",
+                        text: "文件已成功上传到ZeroG, 使用key/value格式存储。",
                         content: {
                             success: true,
-                            transactionHash: null,
+                            fileName: fileName,
+                            keyBase64: keyBase64,
+                            streamId: streamId,
+                            transactionHash: tx,
                         },
                     });
                 }
 
-                console.log(
-                    "@@@ ZG_UPLOAD  File uploaded successfully to ZeroG."
-                );
+                console.log("@@@ ZG_UPLOAD 文件已成功上传为key/value格式");
 
                 return true;
             } finally {
