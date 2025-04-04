@@ -17,5 +17,9 @@
         {
             "path": "packages/client-slack"
         }
-    ]
+    ],
+    "compilerOptions": {
+        "incremental": true,
+        "tsBuildInfoFile": "./node_modules/.cache/tsbuildinfo"
+    }
 }
