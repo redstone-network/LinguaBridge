@@ -1,5 +1,6 @@
 import { Plugin } from "@elizaos/core";
 import { zgUpload } from "./actions/upload";
+import { KnowledgeService } from "./services/knowledge";
 
 export const zgPlugin: Plugin = {
     description: "ZeroG Plugin for Eliza",
@@ -7,4 +8,5 @@ export const zgPlugin: Plugin = {
     actions: [zgUpload],
     evaluators: [],
     providers: [],
+    services: [new KnowledgeService()],
 };

@@ -516,7 +516,7 @@ export const zgUpload: Action = {
                 const value = Uint8Array.from(fileContent);
 
                 // 使用文件的root哈希作为streamId
-                const streamId = merkleTree.rootHash();
+                const streamId = runtime.getSetting("KNOWLEDGE_STREAM_ID");
 
                 batcher.streamDataBuilder.set(streamId, key, value);
 
