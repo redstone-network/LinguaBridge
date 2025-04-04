@@ -3,7 +3,7 @@ export const uploadTemplate = `Respond with a JSON string containing only the ex
 Example response:
 \`\`\`json
 {
-    "filePath": null,
+    "filePath": "/Users/liyihang/Downloads/xxx.png",
     "description": "I want to upload a file"
 }
 \`\`\`

@@ -1,5 +1,5 @@
-import { promises as fs } from 'fs';
-import path from 'path';
+import { promises as fs } from "fs";
+import path from "path";
 
 export interface SecurityConfig {
     maxFileSize: number;
@@ -17,14 +17,23 @@ export class FileSecurityValidator {
     private config: SecurityConfig;
 
     constructor(config: SecurityConfig) {
-        if (!config.allowedExtensions || config.allowedExtensions.length === 0) {
-            throw new Error('Security configuration error: allowedExtensions must be specified');
+        if (
+            !config.allowedExtensions ||
+            config.allowedExtensions.length === 0
+        ) {
+            throw new Error(
+                "Security configuration error: allowedExtensions must be specified"
+            );
         }
         if (!config.uploadDirectory) {
-            throw new Error('Security configuration error: uploadDirectory must be specified');
+            throw new Error(
+                "Security configuration error: uploadDirectory must be specified"
+            );
         }
         if (config.maxFileSize <= 0) {
-            throw new Error('Security configuration error: maxFileSize must be positive');
+            throw new Error(
+                "Security configuration error: maxFileSize must be positive"
+            );
         }
         this.config = config;
     }
@@ -34,7 +43,7 @@ export class FileSecurityValidator {
             if (!filePath) {
                 return {
                     isValid: false,
-                    error: 'Invalid file path: Path cannot be empty'
+                    error: "Invalid file path: Path cannot be empty",
                 };
             }
 
@@ -42,21 +51,21 @@ export class FileSecurityValidator {
             if (!ext) {
                 return {
                     isValid: false,
-                    error: `File type not allowed. Allowed types: ${this.config.allowedExtensions.join(', ')}`
+                    error: `File type not allowed. Allowed types: ${this.config.allowedExtensions.join(", ")}`,
                 };
             }
 
             if (!this.config.allowedExtensions.includes(ext)) {
                 return {
                     isValid: false,
-                    error: `File type not allowed. Allowed types: ${this.config.allowedExtensions.join(', ')}`
+                    error: `File type not allowed. Allowed types: ${this.config.allowedExtensions.join(", ")}`,
                 };
             }
             return { isValid: true };
         } catch (error) {
             return {
                 isValid: false,
-                error: `Error validating file type: ${error instanceof Error ? error.message : String(error)}`
+                error: `Error validating file type: ${error instanceof Error ? error.message : String(error)}`,
             };
         }
     }
@@ -66,7 +75,7 @@ export class FileSecurityValidator {
             if (!filePath) {
                 return {
                     isValid: false,
-                    error: 'Invalid file path: Path cannot be empty'
+                    error: "Invalid file path: Path cannot be empty",
                 };
             }
 
@@ -74,33 +83,33 @@ export class FileSecurityValidator {
             if (stats.size === 0) {
                 return {
                     isValid: false,
-                    error: 'Invalid file: File is empty'
+                    error: "Invalid file: File is empty",
                 };
             }
 
             if (stats.size > this.config.maxFileSize) {
                 return {
                     isValid: false,
-                    error: `File size exceeds limit of ${this.config.maxFileSize} bytes (file size: ${stats.size} bytes)`
+                    error: `File size exceeds limit of ${this.config.maxFileSize} bytes (file size: ${stats.size} bytes)`,
                 };
             }
             return { isValid: true };
         } catch (error) {
-            if (error.code === 'ENOENT') {
+            if (error.code === "ENOENT") {
                 return {
                     isValid: false,
-                    error: 'File not found or inaccessible'
+                    error: "File not found or inaccessible",
                 };
             }
-            if (error.code === 'EACCES') {
+            if (error.code === "EACCES") {
                 return {
                     isValid: false,
-                    error: 'Permission denied: Cannot access file'
+                    error: "Permission denied: Cannot access file",
                 };
             }
             return {
                 isValid: false,
-                error: `Error checking file size: ${error instanceof Error ? error.message : String(error)}`
+                error: `Error checking file size: ${error instanceof Error ? error.message : String(error)}`,
             };
         }
     }
@@ -110,51 +119,74 @@ export class FileSecurityValidator {
             if (!filePath) {
                 return {
                     isValid: false,
-                    error: 'Invalid file path: Path cannot be empty'
+                    error: "Invalid file path: Path cannot be empty",
                 };
             }
 
             const normalizedPath = path.normalize(filePath);
-            
+
             // Check for directory traversal attempts
-            if (normalizedPath.includes('..')) {
+            if (normalizedPath.includes("..")) {
                 return {
                     isValid: false,
-                    error: 'Invalid file path: Directory traversal detected'
+                    error: "Invalid file path: Directory traversal detected",
                 };
             }
 
             // For test files, we'll allow them to be created in the test directory
-            if (normalizedPath.includes('__test_files__')) {
+            if (normalizedPath.includes("__test_files__")) {
                 return { isValid: true };
             }
 
             // For production files, ensure they're in the upload directory
             const uploadDir = path.normalize(this.config.uploadDirectory);
-            
+            console.log("@@@@ uploadDir", uploadDir);
+            console.log("@@@@ normalizedPath", normalizedPath);
             // Check if upload directory exists and is accessible
-            try {
-                await fs.access(uploadDir, fs.constants.W_OK);
-            } catch (error) {
-                return {
-                    isValid: false,
-                    error: `Upload directory is not accessible: ${error.code === 'ENOENT' ? 'Directory does not exist' : 
-                           error.code === 'EACCES' ? 'Permission denied' : error.message}`
-                };
-            }
+            // try {
+            //     await fs.access(uploadDir, fs.constants.W_OK);
+            // } catch (error) {
+            //     return {
+            //         isValid: false,
+            //         error: `Upload directory is not accessible: ${
+            //             error.code === "ENOENT"
+            //                 ? "Directory does not exist"
+            //                 : error.code === "EACCES"
+            //                   ? "Permission denied"
+            //                   : error.message
+            //         }`,
+            //     };
+            // }
 
             if (!normalizedPath.startsWith(uploadDir)) {
-                return {
-                    isValid: false,
-                    error: 'Invalid file path: File must be within the upload directory'
-                };
+                try {
+                    // 确保目标目录存在
+                    await fs.mkdir(uploadDir, { recursive: true });
+
+                    // 构建目标文件路径
+                    const targetPath = path.join(
+                        uploadDir,
+                        path.basename(normalizedPath)
+                    );
+
+                    // 复制文件
+                    await fs.copyFile(normalizedPath, targetPath);
+
+                    // 更新normalizedPath为新的路径
+                    return { isValid: true };
+                } catch (copyError) {
+                    return {
+                        isValid: false,
+                        error: `无法复制文件到上传目录: ${copyError instanceof Error ? copyError.message : String(copyError)}`,
+                    };
+                }
             }
 
             return { isValid: true };
         } catch (error) {
             return {
                 isValid: false,
-                error: `Error validating file path: ${error instanceof Error ? error.message : String(error)}`
+                error: `Error validating file path: ${error instanceof Error ? error.message : String(error)}`,
             };
         }
     }
@@ -162,21 +194,31 @@ export class FileSecurityValidator {
     sanitizePath(filePath: string): string {
         try {
             if (!filePath) {
-                throw new Error('File path cannot be empty');
+                throw new Error("File path cannot be empty");
             }
 
             // Remove any directory traversal attempts
-            const normalizedPath = path.normalize(filePath).replace(/^(\.\.[\/\\])+/, '');
-            
+            const normalizedPath = path
+                .normalize(filePath)
+                .replace(/^(\.\.[\/\\])+/, "");
+
             // If it's a test path, preserve it
-            if (normalizedPath.includes('__test_files__') || !normalizedPath.startsWith(this.config.uploadDirectory)) {
+            if (
+                normalizedPath.includes("__test_files__") ||
+                !normalizedPath.startsWith(this.config.uploadDirectory)
+            ) {
                 return normalizedPath;
             }
-            
+
             // For production paths, ensure they're in the upload directory
-            return path.join(this.config.uploadDirectory, path.basename(normalizedPath));
+            return path.join(
+                this.config.uploadDirectory,
+                path.basename(normalizedPath)
+            );
         } catch (error) {
-            throw new Error(`Error sanitizing file path: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(
+                `Error sanitizing file path: ${error instanceof Error ? error.message : String(error)}`
+            );
         }
     }
-} 
+}

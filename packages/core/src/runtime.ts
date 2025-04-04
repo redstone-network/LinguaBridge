@@ -433,12 +433,21 @@ export class AgentRuntime implements IAgentRuntime {
                 );
         }
 
+        console.log(
+            "@@@knowledge check: ",
+            this.character.knowledge,
+            this.character.knowledge.length > 0
+        );
+
         if (
             this.character &&
             this.character.knowledge &&
             this.character.knowledge.length > 0
         ) {
             if (this.character.settings.ragKnowledge) {
+                console.log(
+                    "this.character.settings?.ragKnowledge await this.processCharacterRAGKnowledge("
+                );
                 await this.processCharacterRAGKnowledge(
                     this.character.knowledge
                 );
@@ -565,6 +574,11 @@ export class AgentRuntime implements IAgentRuntime {
                                 agentId: this.agentId,
                             });
 
+                        console.log(
+                            "processCharacterRAGKnowledge existingKnowledge",
+                            existingKnowledge
+                        );
+
                         const content: string = await readFile(
                             filePath,
                             "utf8"
@@ -574,12 +588,21 @@ export class AgentRuntime implements IAgentRuntime {
                             continue;
                         }
 
+                        console.log(
+                            "processCharacterRAGKnowledge content",
+                            content
+                        );
+
                         // If the file exists in DB, check if content has changed
                         if (existingKnowledge.length > 0) {
                             const existingContent =
                                 existingKnowledge[0].content.text;
                             if (existingContent === content) {
                                 elizaLogger.info(
+                                    `File ${contentItem} unchanged, skipping`
+                                );
+
+                                console.log(
                                     `File ${contentItem} unchanged, skipping`
                                 );
                                 continue;
@@ -603,12 +626,21 @@ export class AgentRuntime implements IAgentRuntime {
                             contentItem
                         );
 
+                        console.log(
+                            `Successfully read ${fileExtension.toUpperCase()} file content for`,
+                            this.character.name,
+                            "-",
+                            contentItem
+                        );
+
                         await this.ragKnowledgeManager.processFile({
                             path: contentItem,
                             content: content,
                             type: fileExtension as "pdf" | "md" | "txt",
                             isShared: isShared,
                         });
+
+                        console.log("this.ragKnowledgeManager.processFile");
                     } catch (error: any) {
                         hasError = true;
                         elizaLogger.error(
@@ -656,12 +688,21 @@ export class AgentRuntime implements IAgentRuntime {
                     `Error processing knowledge item ${item}:`,
                     error?.message || error || "Unknown error"
                 );
+
+                console.log(
+                    `Error processing knowledge item ${item}:`,
+                    error?.message || error || "Unknown error"
+                );
                 continue; // Continue to next item even if this one fails
             }
         }
 
         if (hasError) {
             elizaLogger.warn(
+                "Some knowledge items failed to process, but continuing with available knowledge"
+            );
+
+            console.log(
                 "Some knowledge items failed to process, but continuing with available knowledge"
             );
         }
@@ -1204,18 +1245,31 @@ Text: ${attachment.text}
         let formattedKnowledge = "";
 
         if (this.character.settings?.ragKnowledge) {
+            console.log(
+                "this.character.settings?.ragKnowledge recentMessagesData"
+            );
             const recentContext = recentMessagesData
                 .slice(-3) // Last 3 messages
                 .map((msg) => msg.content.text)
                 .join(" ");
 
+            console.log("this.character.settings?.ragKnowledge getKnowledge");
             knowledgeData = await this.ragKnowledgeManager.getKnowledge({
                 query: message.content.text,
                 conversationContext: recentContext,
                 limit: 5,
             });
+            console.log(
+                "this.character.settings?.ragKnowledge knowledgeData",
+                knowledgeData
+            );
 
             formattedKnowledge = formatKnowledge(knowledgeData);
+
+            console.log(
+                "this.character.settings?.ragKnowledge formattedKnowledge",
+                formattedKnowledge
+            );
         } else {
             knowledgeData = await knowledge.get(this, message);
 
