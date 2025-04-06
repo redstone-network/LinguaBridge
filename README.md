@@ -37,15 +37,23 @@ LinguaBridge is built on a multi-layered architecture:
 
 ### Deploy Smart Contracts
 
-````bash
+Configure the environment variables in .env file:
+
+```bash
+ZEROG_PRIVATE_KEY=0x01xxxx
+```
+
+```bash
 git clone https://github.com/redstone-network/LinguaBridge-contract
 yarn install
 yarn deploy:zerog
+```
 
 ### Run LinguaBridge Backend
+
 Configure the environment variables in .env file:
 
-```plaintext
+```bash
 ZEROG_INDEXER_RPC_URL=https://indexer-storage-testnet-turbo.0g.ai
 ZEROG_RPC_URL=https://evmrpc-testnet.0g.ai
 ZEROG_INDEXER_RPC=https://indexer-storage-testnet-turbo.0g.ai
@@ -53,7 +61,7 @@ ZEROG_EVM_RPC=https://evmrpc-testnet.0g.ai
 ZEROG_PRIVATE_KEY=0x01xxx
 ZEROG_FLOW_ADDRESS=0xbD2C3F0E65eDF5582141C35969d66e34629cC768
 INDUSTRY_KNOWLEDGE_CONTRACT=0xA1C6E3B636B2BBD007bcDBe53a0d3a0641C78bAB
-````
+```
 
 Then install dependencies and start the backend:
 
