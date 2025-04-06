@@ -1,151 +1,111 @@
-# Eliza 🤖
+# LinguaBridge
 
-<div align="center">
-  <img src="./docs/static/img/eliza_banner.jpg" alt="Eliza Banner" width="100%" />
-</div>
+LinguaBridge is a decentralized translation enhancement system that combines ElizaOS multi-agent framework with 0g blockchain protocol to provide professional translation services. It addresses the challenges of rare language translation, specialized domain terminology, and cultural context understanding.
 
-<div align="center">
+## Overview
 
-📖 [Documentation](https://elizaos.github.io/eliza/) | 🎯 [Examples](https://github.com/thejoven/awesome-eliza)
+Traditional translation services and AI models face significant limitations:
 
-</div>
+- Lack of data for rare languages (e.g., Swahili, Hausa)
+- Inability to adapt to specialized professional contexts
+- Limited understanding of cultural nuances, idioms, and dialects
 
-## 🌍 README Translations
+LinguaBridge solves these problems through:
 
-[中文说明](./README_CN.md) | [日本語の説明](./README_JA.md) | [한국어 설명](./README_KOR.md) | [Persian](./README_FA.md) | [Français](./README_FR.md) | [Português](./README_PTBR.md) | [Türkçe](./README_TR.md) | [Русский](./README_RU.md) | [Español](./README_ES.md) | [Italiano](./README_IT.md) | [ไทย](./README_TH.md) | [Deutsch](./README_DE.md) | [Tiếng Việt](./README_VI.md) | [עִברִית](https://github.com/elizaos/Elisa/blob/main/README_HE.md) | [Tagalog](./README_TG.md) | [Polski](./README_PL.md) | [Arabic](./README_AR.md) | [Hungarian](./README_HU.md) | [Srpski](./README_RS.md) | [Română](./README_RO.md) | [Nederlands](./README_NL.md)
+- Incentivized corpus contribution with token rewards
+- AI agent-based content review
+- RAG (Retrieval-Augmented Generation) enhanced translation
+- Blockchain-based ownership and value attribution
 
-## 🚩 Overview
+## Key Features
 
-<div align="center">
-  <img src="./docs/static/img/eliza_diagram.png" alt="Eliza Diagram" width="100%" />
-</div>
+- **Decentralized Corpus Collection**: Community members can contribute specialized knowledge and receive token rewards
+- **Dynamic RAG Enhancement**: Improves translation quality with domain-specific knowledge
+- **Blockchain Incentives**: ERC20 token rewards based on contribution quality
+- **Cultural Context Integration**: Supports uploading cultural knowledge to make translations more authentic
 
-## ✨ Features
+## Technical Architecture
 
-- 🛠️ Full-featured Discord, Twitter and Telegram connectors
-- 🔗 Support for every model (Llama, Grok, OpenAI, Anthropic, etc.)
-- 👥 Multi-agent and room support
-- 📚 Easily ingest and interact with your documents
-- 💾 Retrievable memory and document store
-- 🚀 Highly extensible - create your own actions and clients
-- ☁️ Supports many models (local Llama, OpenAI, Anthropic, Groq, etc.)
-- 📦 Just works!
+LinguaBridge is built on a multi-layered architecture:
 
-## Video Tutorials
+- **Blockchain Layer**: Solidity contracts on 0G protocol for metadata management
+- **Storage Layer**: Distributed file storage via 0G and IPFS
+- **Incentive Layer**: ERC20 token rewards based on contribution quality
+- **Application Layer**: RAG service with DeepSeek API and FAISS for knowledge retrieval
 
-[AI Agent Dev School](https://www.youtube.com/watch?v=ArptLpQiKfI&list=PLx5pnFXdPTRzWla0RaOxALTSTnVq53fKL)
+## Getting Started
 
-## 🎯 Use Cases
+### Deploy Smart Contracts
 
-- 🤖 Chatbots
-- 🕵️ Autonomous Agents
-- 📈 Business Process Handling
-- 🎮 Video Game NPCs
-- 🧠 Trading
+````bash
+git clone https://github.com/redstone-network/LinguaBridge-contract
+yarn install
+yarn deploy:zerog
 
-## 🚀 Quick Start
+### Run LinguaBridge Backend
+Configure the environment variables in .env file:
 
-### Prerequisites
+```plaintext
+ZEROG_INDEXER_RPC_URL=https://indexer-storage-testnet-turbo.0g.ai
+ZEROG_RPC_URL=https://evmrpc-testnet.0g.ai
+ZEROG_INDEXER_RPC=https://indexer-storage-testnet-turbo.0g.ai
+ZEROG_EVM_RPC=https://evmrpc-testnet.0g.ai
+ZEROG_PRIVATE_KEY=0x01xxx
+ZEROG_FLOW_ADDRESS=0xbD2C3F0E65eDF5582141C35969d66e34629cC768
+INDUSTRY_KNOWLEDGE_CONTRACT=0xA1C6E3B636B2BBD007bcDBe53a0d3a0641C78bAB
+````
 
-- [Python 2.7+](https://www.python.org/downloads/)
-- [Node.js 23+](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
-- [pnpm](https://pnpm.io/installation)
-
-> **Note for Windows Users:** [WSL 2](https://learn.microsoft.com/en-us/windows/wsl/install-manual) is required.
-
-### Use the Starter (Recommended)
+Then install dependencies and start the backend:
 
 ```bash
-git clone https://github.com/elizaos/eliza-starter.git
-cd eliza-starter
-cp .env.example .env
-pnpm i && pnpm build && pnpm start
+pnpm install
+pnpm build && pnpm start --characters="characters/sanzang.character.json, characters/zerog.character.json"
 ```
 
-Once the agent is running, you should see the message to run "pnpm start:client" at the end.
-Open another terminal and move to same directory and then run below command and follow the URL to chat to your agent.
+### Run Client Application
 
 ```bash
+pnpm install
 pnpm start:client
 ```
 
-Then read the [Documentation](https://elizaos.github.io/eliza/) to learn how to customize your Eliza.
+## Core Workflows
 
-### Manually Start Eliza (Only recommended if you know what you are doing)
+1. Corpus Contribution :
 
-```bash
-# Clone the repository
-git clone https://github.com/elizaos/eliza.git
+    - Upload industry knowledge documents (PDF/Word/TXT)
+    - System calculates file hash and stores metadata on-chain
+    - File content is stored in 0G storage layer
 
-# Checkout the latest release
-# This project iterates fast, so we recommend checking out the latest release
-git checkout $(git describe --tags --abbrev=0)
-# If the above doesn't checkout the latest release, this should work:
-# git checkout $(git describe --tags `git rev-list --tags --max-count=1`)
-```
+2. Review Process :
 
-### Start Eliza with Gitpod
+    - ai agent Reviewers approve content through batch operations
 
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/elizaos/eliza/tree/main)
+3. Translation Enhancement :
+    - User submits translation request
+    - System retrieves relevant knowledge from the corpus
+    - RAG engine enhances translation with domain-specific context
+    - User receives culturally-aware, domain-specific translation
 
-### Edit the .env file
+## Innovation Highlights
 
-Copy .env.example to .env and fill in the appropriate values.
+- Dynamic Quality Assessment : Reward coefficient based on semantic density, user ratings, and usage frequency
+- Sybil Attack Resistance : Contributor credit system with ZK-proof requirements for low-trust users
+- Optimized RAG Strategy : Balanced approach combining semantic (60%), keyword (30%), and recency-based (10%) retrieval
 
-```
-cp .env.example .env
-```
+## Performance Targets
 
-Note: .env is optional. If you're planning to run multiple distinct agents, you can pass secrets through the character JSON
+- File upload latency: <2s
+- Review transaction throughput: ≥50 TPS
+- RAG retrieval accuracy: >92% (BLEU score)
+- Token reward success rate: 99.99%
 
-### Automatically Start Eliza
+## Future Extensions
 
-This will run everything to set up the project and start the bot with the default character.
+- Multi-language support through category-based knowledge organization
+- DAO governance for reviewer elections and reward parameter voting
+- Corpus deprecation mechanisms to maintain knowledge freshness
 
-```bash
-sh scripts/start.sh
-```
+## License
 
-### Edit the character file
-
-1. Open `packages/core/src/defaultCharacter.ts` to modify the default character. Uncomment and edit.
-
-2. To load custom characters:
-    - Use `pnpm start --characters="path/to/your/character.json"`
-    - Multiple character files can be loaded simultaneously
-3. Connect with X (Twitter)
-    - change `"clients": []` to `"clients": ["twitter"]` in the character file to connect with X
-
-### Manually Start Eliza
-
-```bash
-pnpm i
-pnpm build
-pnpm start
-
-# The project iterates fast, sometimes you need to clean the project if you are coming back to the project
-pnpm clean
-```
-
-#### Additional Requirements
-
-You may need to install Sharp. If you see an error when starting up, try installing it with the following command:
-
-```
-pnpm install --include=optional sharp
-```
-
-### Community & contact
-
-- [GitHub Issues](https://github.com/elizaos/eliza/issues). Best for: bugs you encounter using Eliza, and feature proposals.
-- [Discord](https://discord.gg/ai16z). Best for: sharing your applications and hanging out with the community.
-
-## Contributors
-
-<a href="https://github.com/elizaos/eliza/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=elizaos/eliza" />
-</a>
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=elizaos/eliza&type=Date)](https://star-history.com/#elizaos/eliza&Date)
+MIT License
