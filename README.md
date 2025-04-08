@@ -114,6 +114,10 @@ pnpm start:client
 - DAO governance for reviewer elections and reward parameter voting
 - Corpus deprecation mechanisms to maintain knowledge freshness
 
+## video
+
+https://drive.google.com/file/d/1QJvyTaCjbiUzBfrjV-Q7LDcxPQa-Lj03/view?usp=sharing
+
 ## License
 
 MIT License
