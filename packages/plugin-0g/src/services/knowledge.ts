@@ -54,12 +54,13 @@ export class KnowledgeService extends Service {
     private contract: ethers.Contract;
     private syncInterval: NodeJS.Timeout | null = null;
     private knowledgeDir: string = path.join(
-        process.cwd(),
+        path.dirname(process.cwd()),
         "characters",
         "knowledge",
         "shared",
         "industry_fields"
     );
+    private runtime: IAgentRuntime;
 
     async initialize(runtime: IAgentRuntime): Promise<void> {
         try {
@@ -95,6 +96,8 @@ export class KnowledgeService extends Service {
                 IndustryKnowledgeFolderABI,
                 this.signer
             );
+
+            this.runtime = runtime;
 
             // 确保知识目录存在
             await this.ensureKnowledgeDir();
@@ -234,7 +237,8 @@ export class KnowledgeService extends Service {
     private async approveFile(file: FileEntry): Promise<void> {
         try {
             // 计算奖励金额 - 这里使用一个基础值,可以根据文件大小或其他因素调整
-            const baseReward = 100; // 基础奖励代币数量
+            const baseReward = 100; // 基础奖励代币数量 //todo使用大模型动态生成baseReward
+
             const rewardAmount = Math.floor(
                 baseReward * (1 + file.size / (1024 * 1024))
             ); // 根据文件大小增加奖励
