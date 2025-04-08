@@ -1,0 +1,3 @@
+[submodule "LinguaBridge-contract"]
+	path = LinguaBridge-contract
+	url = https://github.com/redstone-network/LinguaBridge-contract
